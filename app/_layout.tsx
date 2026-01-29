@@ -10,7 +10,6 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#000' },
         }}
       >
-        {/* This will automatically load app/index.tsx */}
         <Stack.Screen 
           name="index" 
           options={{ 

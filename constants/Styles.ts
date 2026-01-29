@@ -93,6 +93,7 @@ export const CommonStyles = StyleSheet.create({
   },
 
   actionButtonText: {
+    paddingLeft: 12,
     color: Colors.text,
     fontSize: 17,
     fontWeight: '700',

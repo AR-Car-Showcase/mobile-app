@@ -1,20 +1,36 @@
-import { useState, useRef } from 'react';
-import { View, Text, Pressable, ScrollView, Image, Alert } from 'react-native';
+import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { ViroARSceneNavigator } from '@reactvision/react-viro';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
-import ARSurfaceScene from './scenes/ARSurfaceScene';
-import ARMarkerScene from './scenes/ARMarkerScene';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useRef, useState, useEffect } from 'react';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ARStyles, Colors, CommonStyles } from '../constants';
 import ARCustomMarkerWrapper from './scenes/ARCustomMarkerWrapper';
-import { CommonStyles, ARStyles, Colors } from '../constants';
+import ARMarkerScene from './scenes/ARMarkerScene';
+import ARSurfaceScene from './scenes/ARSurfaceScene';
+import VehicleSelector from '../components/VehicleSelector';
+import { Trim } from '../api/carApi';
 
 type ARMode = 'surface' | 'marker' | 'custom';
 
 export default function HomeScreen() {
+  const params = useLocalSearchParams();
   const [showAR, setShowAR] = useState(false);
   const [selectedMode, setSelectedMode] = useState<ARMode>('surface');
   const [customImage, setCustomImage] = useState<string | null>(null);
+  const [selectorVisible, setSelectorVisible] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<Trim | null>(null);
   const sceneRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (params.startAR === 'true' && params.vehicle) {
+      const vehicle = JSON.parse(params.vehicle as string);
+      setSelectedVehicle(vehicle);
+      setShowAR(true);
+      // Clear params to avoid re-triggering on reload
+      router.setParams({ startAR: undefined, vehicle: undefined });
+    }
+  }, [params]);
 
   const handleModeSelect = (mode: ARMode) => {
     setSelectedMode(mode);
@@ -148,6 +164,52 @@ export default function HomeScreen() {
           Select your preferred AR experience mode
         </Text>
       </View>
+
+      <View style={CommonStyles.card}>
+        <Text style={CommonStyles.cardTitle}>Vehicle Selection</Text>
+        {selectedVehicle ? (
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ color: Colors.accentLight, fontSize: 18, fontWeight: 'bold' }}>
+              {selectedVehicle.model_make_display} {selectedVehicle.model_name}
+            </Text>
+            <Text style={{ color: Colors.textSecondary }}>
+              {selectedVehicle.model_year} • {selectedVehicle.model_trim || 'Base'}
+            </Text>
+            <View style={{ marginTop: 8, flexDirection: 'row', flexWrap: 'wrap' }}>
+              <View style={styles.specBadge}><Text style={styles.specText}>{selectedVehicle.model_engine_cc}cc</Text></View>
+              <View style={styles.specBadge}><Text style={styles.specText}>{selectedVehicle.model_transmission_type}</Text></View>
+              <View style={styles.specBadge}><Text style={styles.specText}>{selectedVehicle.model_drive}</Text></View>
+            </View>
+          </View>
+        ) : (
+          <Text style={[CommonStyles.cardText, { marginBottom: 16 }]}>
+            No vehicle selected. Choose a vehicle to view its specifications and see it in AR.
+          </Text>
+        )}
+        <Pressable
+          style={[CommonStyles.actionButton, { marginTop: 0 }]}
+          onPress={() => setSelectorVisible(true)}
+        >
+          <View style={CommonStyles.actionButtonContent}>
+            <Ionicons name="car-outline" size={20} color={Colors.text} />
+            <Text style={CommonStyles.actionButtonText}>
+              {selectedVehicle ? 'Change Vehicle' : 'Select Vehicle'}
+            </Text>
+          </View>
+        </Pressable>
+      </View>
+
+      <VehicleSelector
+        visible={selectorVisible}
+        onClose={() => setSelectorVisible(false)}
+        onSelect={(vehicle) => {
+          setSelectorVisible(false);
+          router.push({
+            pathname: '/details',
+            params: { vehicle: JSON.stringify(vehicle) }
+          });
+        }}
+      />
 
       <View style={CommonStyles.modeSelector}>
         <Pressable
@@ -294,3 +356,18 @@ export default function HomeScreen() {
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  specBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  specText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+});
