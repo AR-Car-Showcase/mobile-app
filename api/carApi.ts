@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 
 const BASE_URL = Constants.expoConfig?.extra?.API_URL;
-console.log('BASE_URL =', BASE_URL);
+
 
 export interface Make {
     make_id: string;
@@ -55,7 +55,6 @@ export interface Trim {
     model_make_display: string;
 }
 
-console.log('BASE_URL =', BASE_URL);
 
 
 export interface Year {
