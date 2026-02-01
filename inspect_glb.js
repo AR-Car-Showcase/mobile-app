@@ -1,52 +1,77 @@
 const fs = require('fs');
 
-const filePath = '/run/media/sricharan.adepu/Sri_Charan1/viro-react/ARCarShowcase/assets/models/car.glb';
+const filePath = './assets/models/car.glb';
 
 try {
     const buffer = fs.readFileSync(filePath);
 
     const magic = buffer.readUInt32LE(0);
-    const version = buffer.readUInt32LE(4);
-    const length = buffer.readUInt32LE(8);
-
-    if (magic !== 0x46546C67) {
-        console.error('Not a valid GLB file');
-        process.exit(1);
-    }
-
     const chunkLength = buffer.readUInt32LE(12);
-    const chunkType = buffer.readUInt32LE(16);
-
-    if (chunkType !== 0x4E4F534A) {
-        console.error('First chunk is not JSON');
-        process.exit(1);
-    }
-
     const jsonBuffer = buffer.slice(20, 20 + chunkLength);
-    const jsonStr = jsonBuffer.toString('utf8');
-    const json = JSON.parse(jsonStr);
+    const json = JSON.parse(jsonBuffer.toString('utf8'));
 
-    console.log('--- Materials ---');
-    if (json.materials) {
-        json.materials.forEach((mat, index) => {
-            console.log(`${index}: ${mat.name}`);
-        });
-    } else {
-        console.log('No materials found in JSON');
-    }
-
-    console.log('\n--- Meshes ---');
-    if (json.meshes) {
-        json.meshes.forEach((mesh, index) => {
-            console.log(`${index}: ${mesh.name}`);
-            if (mesh.primitives) {
-                mesh.primitives.forEach((prim, pIndex) => {
-                    console.log(`  Prim ${pIndex}: Material Index ${prim.material}`);
-                });
+    function findNodesByNames(names) {
+        const results = [];
+        json.nodes.forEach((node, idx) => {
+            if (node.name && names.some(name => node.name.includes(name))) {
+                results.push({ idx, ...node });
             }
         });
+        return results;
     }
 
+    function getHierarchy(nodeIdx, level = 0) {
+        const node = json.nodes[nodeIdx];
+        let info = '  '.repeat(level) + `- Node ${nodeIdx}: "${node.name}" (Mesh: ${node.mesh !== undefined ? node.mesh : 'none'})\n`;
+        if (node.mesh !== undefined) {
+            const mesh = json.meshes[node.mesh];
+            mesh.primitives.forEach((prim, pIdx) => {
+                info += '  '.repeat(level + 1) + `* Primitive ${pIdx} uses Material ${prim.material}\n`;
+            });
+        }
+        if (node.children) {
+            node.children.forEach(childIdx => {
+                info += getHierarchy(childIdx, level + 1);
+            });
+        }
+        return info;
+    }
+
+    const targetedNames = ['Object_46_46_93', 'Object_46_46_94', 'Object_94_94'];
+    const found = findNodesByNames(targetedNames);
+
+    console.log('--- Deep Hierarchy Inspection ---');
+    found.forEach(f => {
+        console.log(`\nRoot search match found: Node ${f.idx}`);
+        console.log(getHierarchy(f.idx));
+    });
+
+
+    console.log('\n--- Root Nodes ---');
+    const hasParent = new Set();
+    json.nodes.forEach(node => {
+        if (node.children) {
+            node.children.forEach(c => hasParent.add(c));
+        }
+    });
+
+    json.nodes.forEach((node, idx) => {
+        if (!hasParent.has(idx) && node.children) {
+            console.log(`Potential Global Root Node ${idx}: "${node.name}"`);
+        }
+    });
+
+
+    console.log('\n--- Final Materials to Mesh/Primitive Mapping ---');
+    let globalPrimCounter = 0;
+    json.meshes.forEach((mesh, mIdx) => {
+        mesh.primitives.forEach((prim, pIdx) => {
+            const matName = json.materials[prim.material] ? json.materials[prim.material].name : 'unknown';
+            console.log(`${globalPrimCounter}: Mesh ${mIdx} ("${mesh.name}"), Prim ${pIdx} -> Material ${prim.material} ("${matName}")`);
+            globalPrimCounter++;
+        });
+    });
+
 } catch (err) {
-    console.error('Error reading file:', err);
+    console.error('Error:', err);
 }

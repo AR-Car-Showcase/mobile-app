@@ -13,7 +13,7 @@ const SLIDER_WIDTH = width - 60;
 const POINTER_SIZE = 24;
 
 interface ColorSliderProps {
-    onColorChange: (color: string) => void;
+    onColorChange: (color: string, code: string) => void;
     initialValue?: number;
 }
 
@@ -38,24 +38,30 @@ export default function ColorSlider({ onColorChange, initialValue = 0 }: ColorSl
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onPanResponderMove: (e, gestureState) => {
-                let newX = gestureState.moveX - 30; // 30 is horizontal padding
+                let newX = gestureState.moveX - 20 - 10;
+
                 if (newX < 0) newX = 0;
                 if (newX > SLIDER_WIDTH) newX = SLIDER_WIDTH;
 
                 pan.setValue(newX);
 
                 const idx = Math.round((newX / SLIDER_WIDTH) * (colors.length - 1));
-                if (idx !== selectedIdx) {
+                if (idx !== selectedIdx && idx >= 0 && idx < colors.length) {
+                    console.log('INFO: Color selected:', colors[idx].name, colors[idx].code);
                     setSelectedIdx(idx);
-                    onColorChange(colors[idx].value);
+                    onColorChange(colors[idx].value, colors[idx].code);
                 }
             },
             onPanResponderRelease: (e, gestureState) => {
-                const idx = Math.round((pan._value / SLIDER_WIDTH) * (colors.length - 1));
-                const finalX = idx * (SLIDER_WIDTH / (colors.length - 1));
+                const currentValue = (pan as any)._value;
+                const idx = Math.round((currentValue / SLIDER_WIDTH) * (colors.length - 1));
+                const constrainedIdx = Math.max(0, Math.min(colors.length - 1, idx));
+                const finalX = constrainedIdx * (SLIDER_WIDTH / (colors.length - 1));
+
                 Animated.spring(pan, {
                     toValue: finalX,
                     useNativeDriver: false,
+                    friction: 7,
                 }).start();
             },
         })
@@ -93,46 +99,49 @@ export default function ColorSlider({ onColorChange, initialValue = 0 }: ColorSl
 
 const styles = StyleSheet.create({
     container: {
-        paddingHorizontal: 30,
-        paddingVertical: 20,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        borderRadius: 16,
+        marginHorizontal: 10,
     },
     label: {
         color: '#fff',
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginBottom: 15,
+        fontSize: 15,
+        fontWeight: '600',
+        marginBottom: 12,
         textAlign: 'center',
     },
     sliderTrackWrapper: {
-        height: 30,
+        height: 40,
         justifyContent: 'center',
+        paddingVertical: 5,
     },
     sliderTrack: {
-        height: 12,
+        height: 16,
         flexDirection: 'row',
-        borderRadius: 6,
+        borderRadius: 8,
         overflow: 'hidden',
-        backgroundColor: '#333',
+        backgroundColor: '#222',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
     colorSegment: {
         height: '100%',
     },
     pointer: {
         position: 'absolute',
-        width: POINTER_SIZE,
-        height: POINTER_SIZE,
-        borderRadius: POINTER_SIZE / 2,
-        borderWidth: 3,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        borderWidth: 4,
         borderColor: '#fff',
-        top: 3,
-        marginLeft: -POINTER_SIZE / 2,
+        top: 6,
+        marginLeft: -14,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.5,
-        shadowRadius: 2,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        elevation: 8,
     },
 });

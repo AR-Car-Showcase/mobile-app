@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/release.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "newArchEnabled": true,
     "plugins": [
       [
@@ -36,7 +31,8 @@
         }
       ],
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-asset"
     ],
     "ios": {
       "supportsTabletMode": true,

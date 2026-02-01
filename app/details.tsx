@@ -114,7 +114,7 @@ export default function VehicleDetailsScreen() {
                     style={[CommonStyles.actionButton, styles.launchButton]}
                     onPress={() => router.push({ pathname: '/', params: { startAR: 'true', vehicle: JSON.stringify(vehicle) } })}
                 >
-                    <Ionicons name="rocket" size={20} color={Colors.text} />
+                    <Ionicons name="play-outline" size={20} color={Colors.text} />
                     <Text style={CommonStyles.actionButtonText}>Launch AR with this Car</Text>
                 </Pressable>
 

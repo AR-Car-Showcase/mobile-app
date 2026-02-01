@@ -27,7 +27,7 @@ export default function HomeScreen() {
       const vehicle = JSON.parse(params.vehicle as string);
       setSelectedVehicle(vehicle);
       setShowAR(true);
-      // Clear params to avoid re-triggering on reload
+
       router.setParams({ startAR: undefined, vehicle: undefined });
     }
   }, [params]);
@@ -199,6 +199,23 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
+
+      <View style={CommonStyles.card}>
+        <Text style={CommonStyles.cardTitle}>3D Customization & AR</Text>
+        <Text style={[CommonStyles.cardText, { marginBottom: 16 }]}>
+          Customize your car in a studio-quality 3D editor and view it in augmented reality.
+        </Text>
+        <Pressable
+          style={[CommonStyles.actionButton, { marginTop: 0, backgroundColor: Colors.accentLight }]}
+          onPress={() => router.push('/hybrid')}
+        >
+          <View style={CommonStyles.actionButtonContent}>
+            <Ionicons name="color-palette" size={20} color={Colors.text} />
+            <Text style={CommonStyles.actionButtonText}>Edit and AR view 3D car</Text>
+          </View>
+        </Pressable>
+      </View>
+
       <VehicleSelector
         visible={selectorVisible}
         onClose={() => setSelectorVisible(false)}
@@ -309,7 +326,7 @@ export default function HomeScreen() {
         disabled={selectedMode === 'custom' && !customImage}
       >
         <View style={CommonStyles.actionButtonContent}>
-          <Ionicons name="rocket" size={20} color={Colors.text} />
+          <Ionicons name="play-outline" size={20} color={Colors.text} />
           <Text style={CommonStyles.actionButtonText}>Launch AR Experience</Text>
         </View>
       </Pressable>
