@@ -64,14 +64,7 @@ export default function ARCustomMarkerScene({ customImageUri, sceneNavigator }: 
     setCarScale(prev => Math.max(0.05, prev - 0.05));
   }, []);
 
-  if (sceneNavigator?.viroAppProps?.sceneRef) {
-    sceneNavigator.viroAppProps.sceneRef.current = {
-      rotateLeft,
-      rotateRight,
-      zoomIn,
-      zoomOut,
-    };
-  }
+
 
   const onAnchorFound = useCallback(() => {
     setImageFound(true);

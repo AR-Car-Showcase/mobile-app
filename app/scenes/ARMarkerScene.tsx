@@ -31,7 +31,7 @@ ViroAnimations.registerAnimations({
   },
 });
 
-export default function ARMarkerScene(props: any) {
+export default function ARMarkerScene(props?: any) {
   const [carScale, setCarScale] = useState(0.08);
   const [carRotation, setCarRotation] = useState<[number, number, number]>([0, 0, 0]);
   const [imageFound, setImageFound] = useState(false);
@@ -53,14 +53,7 @@ export default function ARMarkerScene(props: any) {
     setCarScale(prev => Math.max(0.05, prev - 0.05));
   }, []);
 
-  if (props.sceneNavigator?.viroAppProps?.sceneRef) {
-    props.sceneNavigator.viroAppProps.sceneRef.current = {
-      rotateLeft,
-      rotateRight,
-      zoomIn,
-      zoomOut,
-    };
-  }
+
 
   const onAnchorFound = useCallback(() => {
     setImageFound(true);
