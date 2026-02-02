@@ -1,23 +1,29 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { CommonStyles } from '../constants';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { CommonStyles, ARStyles, Colors } from '../constants';
 import { CarProvider, useCarContext } from './context/CarContext';
 import CustomizerScreen from './components/CustomizerScreen';
-import ColorPicker from './components/ColorPicker';
+import CustomizationDrawer from './components/CustomizationDrawer';
 import { generateCustomModel, getModelUrl } from './services/blenderService';
 import { ViroARSceneNavigator } from '@reactvision/react-viro';
 import ARHybridScene from './scenes/ARHybridScene';
 
+
 function HybridContent() {
     const router = useRouter();
     const [viewMode, setViewMode] = useState<'3D' | 'AR'>('3D');
-    const { config, updateColor } = useCarContext();
+    const { config, updateMaterialColor, setShowCustomized } = useCarContext();
+    const [activeMaterial, setActiveMaterial] = useState('CAR_BODY_PRIMARY');
     const [showSpecs, setShowSpecs] = useState(false);
-    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const [backgroundTheme, setBackgroundTheme] = useState<'dark' | 'light'>('dark');
+    const [viewType, setViewType] = useState<'exterior' | 'interior'>('exterior');
+    const [isPickerVisible, setIsPickerVisible] = useState(false);
+    const [autoRotate, setAutoRotate] = useState(false);
 
-    const [rotation, setRotation] = useState(0);
+    const [rotationY, setRotationY] = useState(0);
+    const [rotationX, setRotationX] = useState(0);
     const [zoom, setZoom] = useState(5);
     const [touchEnabled, setTouchEnabled] = useState(true);
 
@@ -26,40 +32,18 @@ function HybridContent() {
 
     const sceneRef = useRef<any>(null);
 
-    useEffect(() => {
-        Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-        }).start();
-    }, []);
+    const handleRotateLeft = () => sceneRef.current?.rotateLeft?.();
+    const handleRotateRight = () => sceneRef.current?.rotateRight?.();
+    const handleZoomIn = () => sceneRef.current?.zoomIn?.();
+    const handleZoomOut = () => sceneRef.current?.zoomOut?.();
 
-    const handleRotateLeft = () => {
+    const resetPosition = () => {
         if (viewMode === '3D') {
-            setRotation(prev => prev - 0.3);
+            setRotationY(0);
+            setRotationX(0);
+            setZoom(5);
         } else {
-            sceneRef.current?.rotateLeft?.();
-        }
-    };
-    const handleRotateRight = () => {
-        if (viewMode === '3D') {
-            setRotation(prev => prev + 0.3);
-        } else {
-            sceneRef.current?.rotateRight?.();
-        }
-    };
-    const handleZoomIn = () => {
-        if (viewMode === '3D') {
-            setZoom(prev => Math.max(3, prev - 0.5));
-        } else {
-            sceneRef.current?.zoomIn?.();
-        }
-    };
-    const handleZoomOut = () => {
-        if (viewMode === '3D') {
-            setZoom(prev => Math.min(10, prev + 0.5));
-        } else {
-            sceneRef.current?.zoomOut?.();
+            sceneRef.current?.reset?.();
         }
     };
 
@@ -67,16 +51,17 @@ function HybridContent() {
         setIsGenerating(true);
         try {
             const result = await generateCustomModel({
-                body_color: config.selectedColor,
-            });
+                materials: config.materials,
+                showCustomized: true
+            } as any);
 
             const modelUrl = getModelUrl(result.filename);
-            console.log('INFO: Final Model Path Mapping:', modelUrl);
+            console.log('[INFO] Model generated:', modelUrl);
             setGeneratedModelUrl(modelUrl);
             setViewMode('AR');
         } catch (error) {
-            console.error('Generation failed:', error);
-            Alert.alert('Error', 'Failed to generate custom model. Ensure Blender service is running.');
+            console.error('[ERROR] Generation failed:', error);
+            Alert.alert('Error', 'Generation service unavailable.');
         } finally {
             setIsGenerating(false);
         }
@@ -85,32 +70,101 @@ function HybridContent() {
     return (
         <View style={CommonStyles.container}>
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={() => router.back()}
-                >
-                    <Ionicons name="arrow-back" size={24} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Bugatti Chiron</Text>
-                <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={() => setShowSpecs(!showSpecs)}
-                >
-                    <Ionicons name="information-circle-outline" size={24} color="white" />
-                </TouchableOpacity>
+                <View style={styles.headerLeft}>
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => router.back()}
+                    >
+                        <Ionicons name="arrow-back" size={24} color="white" />
+                    </TouchableOpacity>
+                    {viewMode === '3D' && (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.iconButton, { marginLeft: 12 }]}
+                                onPress={() => setBackgroundTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+                            >
+                                <Ionicons
+                                    name={backgroundTheme === 'dark' ? "sunny-outline" : "moon-outline"}
+                                    size={24}
+                                    color="white"
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.iconButton, { marginLeft: 12, backgroundColor: autoRotate ? '#3b82f6' : 'rgba(0,0,0,0.5)' }]}
+                                onPress={() => setAutoRotate(!autoRotate)}
+                            >
+                                <Ionicons
+                                    name="refresh-circle-outline"
+                                    size={24}
+                                    color="white"
+                                />
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
+
+                <View style={styles.headerCenter}>
+                    <Text style={styles.headerTitle}>Bugatti Chiron</Text>
+                    <TouchableOpacity
+                        style={styles.modelToggle}
+                        onPress={() => setShowCustomized(!config.showCustomized)}
+                    >
+                        <Text style={styles.modelToggleText}>
+                            {config.showCustomized ? 'CUSTOMIZED' : 'ORIGINAL'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.headerRight}>
+                    {viewMode === '3D' && (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.iconButton, { marginRight: 12 }]}
+                                onPress={() => setViewType(prev => prev === 'exterior' ? 'interior' : 'exterior')}
+                            >
+                                <Ionicons
+                                    name={viewType === 'exterior' ? "car-outline" : "glasses-outline"}
+                                    size={24}
+                                    color="white"
+                                />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.iconButton, { marginRight: 12, backgroundColor: isPickerVisible ? '#3b82f6' : 'rgba(0,0,0,0.5)' }]}
+                                onPress={() => setIsPickerVisible(!isPickerVisible)}
+                            >
+                                <Ionicons
+                                    name="color-filter-outline"
+                                    size={24}
+                                    color="white"
+                                />
+                            </TouchableOpacity>
+                        </>
+                    )}
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => setShowSpecs(!showSpecs)}
+                    >
+                        <Ionicons name="information-circle-outline" size={24} color="white" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View style={styles.contentArea}>
                 {viewMode === '3D' ? (
                     <CustomizerScreen
-                        rotation={rotation}
+                        rotationY={rotationY}
+                        rotationX={rotationX}
                         zoom={zoom}
-                        onRotationChange={setRotation}
+                        onRotationYChange={setRotationY}
+                        onRotationXChange={setRotationX}
                         onZoomChange={setZoom}
                         touchEnabled={touchEnabled}
+                        theme={backgroundTheme}
+                        viewType={viewType}
+                        autoRotate={autoRotate}
                     />
                 ) : (
-                    <View style={{ flex: 1 }}>
+                    <View style={styles.arContainer}>
                         <ViroARSceneNavigator
                             autofocus={true}
                             initialScene={{
@@ -118,113 +172,79 @@ function HybridContent() {
                             }}
                             viroAppProps={{
                                 sceneRef,
-                                selectedColorCode: config.selectedColor,
-                                customModelUrl: generatedModelUrl
+                                materials: config.materials,
+                                customModelUrl: generatedModelUrl,
+                                showCustomized: config.showCustomized
                             }}
                             style={styles.arView}
                         />
                     </View>
                 )}
 
-                <View style={styles.controlsOverlayWrapper}>
-                    <View style={styles.controlRow}>
-                        <TouchableOpacity onPress={handleRotateLeft} style={styles.controlBtn}>
-                            <Ionicons name="refresh-outline" style={{ transform: [{ scaleX: -1 }] }} size={24} color="white" />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleRotateRight} style={styles.controlBtn}>
-                            <Ionicons name="refresh-outline" size={24} color="white" />
-                        </TouchableOpacity>
+                {viewMode === 'AR' && (
+                    <View style={ARStyles.controlButtons}>
+                        <View style={ARStyles.rotationButtons}>
+                            <TouchableOpacity style={ARStyles.controlBtn} onPress={handleRotateLeft}>
+                                <Ionicons name="arrow-back" size={24} color="white" />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={ARStyles.controlBtn} onPress={handleRotateRight}>
+                                <Ionicons name="arrow-forward" size={24} color="white" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={ARStyles.zoomButtons}>
+                            <TouchableOpacity style={ARStyles.controlBtn} onPress={handleZoomIn}>
+                                <Ionicons name="add" size={24} color="white" />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={ARStyles.controlBtn} onPress={handleZoomOut}>
+                                <Ionicons name="remove" size={24} color="white" />
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                    <View style={[styles.controlRow, { marginTop: 10 }]}>
-                        <TouchableOpacity onPress={handleZoomOut} style={styles.controlBtn}>
-                            <Ionicons name="remove" size={24} color="white" />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={handleZoomIn} style={styles.controlBtn}>
-                            <Ionicons name="add" size={24} color="white" />
-                        </TouchableOpacity>
-                    </View>
-                    {viewMode === '3D' && (
-                        <TouchableOpacity
-                            onPress={() => setTouchEnabled(!touchEnabled)}
-                            style={[styles.controlBtn, { marginTop: 10, width: 'auto', paddingHorizontal: 12 }]}
-                        >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <Ionicons name={touchEnabled ? "hand-left" : "hand-left-outline"} size={20} color="white" />
-                                <Text style={{ color: 'white', fontSize: 11, fontWeight: '600' }}>
-                                    {touchEnabled ? 'ON' : 'OFF'}
-                                </Text>
+                )}
+
+                <View style={styles.alignmentPointerWrapper}>
+                    <TouchableOpacity style={styles.resetButton} onPress={resetPosition}>
+                        <MaterialIcons name="explore" size={28} color="white" />
+                    </TouchableOpacity>
+                </View>
+
+                {viewMode === 'AR' && (
+                    <View style={styles.bottomControls}>
+                        {showSpecs && (
+                            <View style={styles.specsPanel}>
+                                <Text style={styles.specTitle}>Bugatti Chiron Specs</Text>
+                                <View style={styles.specRow}><Text style={styles.specLabel}>Engine</Text><Text style={styles.specValue}>8.0L W16</Text></View>
+                                <View style={styles.specRow}><Text style={styles.specLabel}>Power</Text><Text style={styles.specValue}>1500 HP</Text></View>
                             </View>
-                        </TouchableOpacity>
-                    )}
-                </View>
-
-                <View style={styles.toggleContainer}>
-                    <TouchableOpacity
-                        style={[styles.toggleButton, viewMode === '3D' && styles.activeToggle]}
-                        onPress={() => setViewMode('3D')}
-                    >
-                        <Text style={styles.toggleText}>3D Studio</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.toggleButton, viewMode === 'AR' && styles.activeToggle]}
-                        onPress={() => setViewMode('AR')}
-                    >
-                        <Text style={styles.toggleText}>AR Mode</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            <View style={styles.bottomControls}>
-                {showSpecs && (
-                    <Animated.View style={[styles.specsPanel, { opacity: fadeAnim }]}>
-                        <Text style={styles.specTitle}>Specifications</Text>
-                        <View style={styles.specRow}>
-                            <Text style={styles.specLabel}>Engine</Text>
-                            <Text style={styles.specValue}>8.0L W16 Quad-Turbo</Text>
-                        </View>
-                        <View style={styles.specRow}>
-                            <Text style={styles.specLabel}>Power</Text>
-                            <Text style={styles.specValue}>1500 hp</Text>
-                        </View>
-                        <View style={styles.specRow}>
-                            <Text style={styles.specLabel}>0-60 mph</Text>
-                            <Text style={styles.specValue}>2.4 s</Text>
-                        </View>
-                    </Animated.View>
-                )}
-
-                {viewMode === '3D' && (
-                    <View style={styles.sliderContainer}>
-                        <ColorPicker
-                            onColorChange={(name, hex) => {
-                                updateColor(name, hex);
-                            }}
-                            selectedColor={config.selectedColor}
-                        />
+                        )}
                         <TouchableOpacity
-                            style={[
-                                styles.applyButton,
-                                isGenerating && styles.applyButtonDisabled
-                            ]}
-                            onPress={handleApplyToAR}
-                            disabled={isGenerating}
+                            style={styles.toggleButton}
+                            onPress={() => setViewMode('3D')}
                         >
-                            <Ionicons name="color-wand" size={20} color="white" />
-                            <Text style={styles.applyButtonText}>
-                                {isGenerating ? 'Generating...' : 'Apply to AR'}
-                            </Text>
+                            <Text style={styles.toggleText}>Back to 3D View</Text>
                         </TouchableOpacity>
                     </View>
                 )}
             </View>
+
+            {viewMode === '3D' && (
+                <CustomizationDrawer
+                    isVisible={isPickerVisible}
+                    onClose={() => setIsPickerVisible(false)}
+                    onApply={handleApplyToAR}
+                    isGenerating={isGenerating}
+                    activeMaterial={activeMaterial}
+                    setActiveMaterial={setActiveMaterial}
+                    onColorChange={updateMaterialColor}
+                    currentColors={config.materials}
+                />
+            )}
 
             {isGenerating && (
                 <View style={styles.loadingOverlay}>
                     <ActivityIndicator size="large" color="#3b82f6" />
-                    <Text style={styles.loadingText}>Generating custom model...</Text>
-                    <Text style={styles.loadingSubtext}>
-                        This runs Blender in the background to create a unique GLB file.
-                    </Text>
+                    <Text style={styles.loadingText}>Generating Model...</Text>
                 </View>
             )}
         </View>
@@ -243,71 +263,112 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         zIndex: 10,
     },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    headerCenter: {
+        alignItems: 'center',
+    },
     headerTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
         color: 'white',
+    },
+    modelToggle: {
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        marginTop: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.5)',
+    },
+    modelToggleText: {
+        color: '#60a5fa',
+        fontSize: 10,
+        fontWeight: 'bold',
+        letterSpacing: 1,
     },
     iconButton: {
         padding: 8,
         borderRadius: 20,
-        backgroundColor: 'rgba(0,0,0,0.3)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    actionBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        position: 'absolute',
+        top: 100,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+    },
+    actionBarLeft: {
+        flexDirection: 'row',
+    },
+    actionBarRight: {
+        flexDirection: 'row',
+    },
+    actionButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
     },
     contentArea: {
         flex: 1,
     },
+    arContainer: {
+        flex: 1,
+        backgroundColor: 'black',
+    },
     arView: {
         flex: 1,
     },
-    controlsOverlayWrapper: {
+    alignmentPointerWrapper: {
         position: 'absolute',
-        left: 20,
+        right: 20,
         bottom: 220,
         zIndex: 20,
     },
-    controlRow: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    controlBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+    resetButton: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
         backgroundColor: 'rgba(0,0,0,0.6)',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
     },
-    toggleContainer: {
-        position: 'absolute',
-        top: 100,
-        alignSelf: 'center',
-        flexDirection: 'row',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        borderRadius: 25,
-        padding: 4,
-        zIndex: 10,
-    },
     toggleButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        borderRadius: 20,
-    },
-    activeToggle: {
-        backgroundColor: '#3b82f6',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 25,
+        backgroundColor: Colors.accent,
+        alignSelf: 'center',
     },
     toggleText: {
         color: 'white',
-        fontWeight: '600',
+        fontWeight: 'bold',
     },
     bottomControls: {
         position: 'absolute',
-        bottom: 0,
+        bottom: 40,
         left: 0,
         right: 0,
-        paddingBottom: 40,
-        paddingHorizontal: 20,
+        alignItems: 'center',
         zIndex: 10,
     },
     specsPanel: {
@@ -315,6 +376,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 16,
         marginBottom: 20,
+        width: '80%',
     },
     specTitle: {
         color: '#3b82f6',
@@ -334,18 +396,24 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
     },
-    sliderContainer: {
+    pickerPanel: {
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        bottom: 30,
+        backgroundColor: 'rgba(20, 20, 20, 0.9)',
+        borderRadius: 25,
+        padding: 15,
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        paddingVertical: 15,
-        borderRadius: 20,
-        width: '100%',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        zIndex: 100,
     },
     applyButton: {
         marginTop: 15,
         backgroundColor: '#3b82f6',
         paddingVertical: 12,
-        paddingHorizontal: 24,
+        paddingHorizontal: 40,
         borderRadius: 25,
         flexDirection: 'row',
         alignItems: 'center',
@@ -357,28 +425,21 @@ const styles = StyleSheet.create({
     },
     applyButtonText: {
         color: 'white',
-        fontWeight: '600',
+        fontWeight: 'bold',
         fontSize: 16,
     },
     loadingOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.85)',
+        backgroundColor: 'rgba(0,0,0,0.8)',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 100,
+        zIndex: 1000,
     },
     loadingText: {
         color: 'white',
         fontSize: 18,
         fontWeight: 'bold',
         marginTop: 20,
-    },
-    loadingSubtext: {
-        color: '#aaa',
-        fontSize: 14,
-        marginTop: 8,
-        textAlign: 'center',
-        paddingHorizontal: 40,
     },
 });
 

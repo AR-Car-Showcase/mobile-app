@@ -6,45 +6,68 @@ import { useCarContext } from '../context/CarContext';
 import * as THREE from 'three';
 
 interface CustomizerScreenProps {
-    rotation: number;
+    rotationY: number;
+    rotationX: number;
     zoom: number;
-    onRotationChange: (rotation: number) => void;
+    onRotationYChange: (rotation: number) => void;
+    onRotationXChange: (rotation: number) => void;
     onZoomChange: (zoom: number) => void;
     touchEnabled: boolean;
+    theme: 'dark' | 'light';
+    viewType: 'exterior' | 'interior';
+    autoRotate?: boolean;
 }
 
-
 function SceneController({
-    targetRotation,
+    targetRotationY,
+    targetRotationX,
     targetZoom,
-    rotationRef,
-    zoomRef
+    rotationYRef,
+    rotationXRef,
+    zoomRef,
+    viewType,
+    autoRotate = false
 }: {
-    targetRotation: number,
+    targetRotationY: number,
+    targetRotationX: number,
     targetZoom: number,
-    rotationRef: React.MutableRefObject<number>,
-    zoomRef: React.MutableRefObject<number>
+    rotationYRef: React.MutableRefObject<number>,
+    rotationXRef: React.MutableRefObject<number>,
+    zoomRef: React.MutableRefObject<number>,
+    viewType: 'exterior' | 'interior',
+    autoRotate?: boolean
 }) {
     const { camera } = useThree();
     const groupRef = useRef<THREE.Group>(null);
     const { scene } = useGLTF(require('../../assets/models/car.glb')) as any;
     const { config } = useCarContext();
     const materialsRef = useRef<THREE.Material[]>([]);
+    const originalColorsRef = useRef<{ [key: string]: string }>({});
     const initializedRef = useRef(false);
-
 
     useEffect(() => {
         if (scene && !initializedRef.current) {
+            const configurableMaterials = Object.keys(config.materials);
+            let count = 0;
             scene.traverse((child: any) => {
-                if (child.isMesh) {
-                    const matName = child.material?.name;
-                    if (matName === 'body' || matName === 'body2' ||
-                        matName === 'Coloured_Material' || matName === 'Base_Material' ||
-                        matName === 'material') {
+                if (child.isMesh && child.material) {
+                    const matName = child.material.name.toLowerCase();
+
+                    if (matName.includes('glass') || matName.includes('window') || matName.includes('windshield')) {
+                        child.material.transparent = true;
+                        child.material.opacity = 0.3;
+                        child.material.side = THREE.DoubleSide;
+                    }
+
+                    if (configurableMaterials.includes(child.material.name)) {
+                        if (!originalColorsRef.current[child.material.name]) {
+                            originalColorsRef.current[child.material.name] = child.material.color.getStyle();
+                        }
                         child.material = child.material.clone();
                         child.material.metalness = 0.6;
                         child.material.roughness = 0.2;
                         materialsRef.current.push(child.material);
+                        count++;
                     }
                 }
             });
@@ -52,42 +75,61 @@ function SceneController({
         }
     }, [scene]);
 
-
     useEffect(() => {
         if (materialsRef.current.length > 0) {
             materialsRef.current.forEach((material: any) => {
-                material.color.set(config.selectedColor);
-                material.needsUpdate = true;
+                const colorHex = config.showCustomized
+                    ? config.materials[material.name]
+                    : originalColorsRef.current[material.name];
+
+                if (colorHex) {
+                    material.color.set(colorHex);
+                    material.needsUpdate = true;
+                }
             });
         }
-    }, [config.selectedColor]);
-
+    }, [config.materials, config.showCustomized]);
 
     useEffect(() => {
-        rotationRef.current = targetRotation;
-    }, [targetRotation]);
+        rotationYRef.current = targetRotationY;
+    }, [targetRotationY]);
+
+    useEffect(() => {
+        rotationXRef.current = targetRotationX;
+    }, [targetRotationX]);
 
     useEffect(() => {
         zoomRef.current = targetZoom;
     }, [targetZoom]);
 
-
-    useFrame(() => {
-        if (groupRef.current) {
-
-            groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, rotationRef.current, 0.2);
+    useFrame((state, delta) => {
+        if (autoRotate && viewType === 'exterior') {
+            rotationYRef.current += delta * 0.3;
         }
 
+        if (groupRef.current) {
+            groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, rotationYRef.current, 0.4);
+            groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, rotationXRef.current, 0.4);
+        }
 
-        const distance = THREE.MathUtils.lerp(camera.position.length(), zoomRef.current, 0.2);
-        const angle = Math.PI / 4;
+        if (viewType === 'interior') {
+            const targetPos = new THREE.Vector3(-0.5, 0.7, 0.2);
+            camera.position.lerp(targetPos, 0.1);
 
-        camera.position.set(
-            distance * Math.cos(angle),
-            distance * 0.4,
-            distance * Math.sin(angle)
-        );
-        camera.lookAt(0, 0, 0);
+            const lookPos = new THREE.Vector3(-0.5, 0.7, 5);
+            const rotatedLookPos = lookPos.applyEuler(new THREE.Euler(0, rotationYRef.current, 0));
+            camera.lookAt(rotatedLookPos);
+        } else {
+            const distance = THREE.MathUtils.lerp(camera.position.length(), zoomRef.current, 0.4);
+            const angle = Math.PI / 4;
+            const targetPos = new THREE.Vector3(
+                distance * Math.cos(angle),
+                distance * 0.4,
+                distance * Math.sin(angle)
+            );
+            camera.position.lerp(targetPos, 0.1);
+            camera.lookAt(0, 0, 0);
+        }
     });
 
     return (
@@ -98,18 +140,23 @@ function SceneController({
 }
 
 export default function CustomizerScreen({
-    rotation,
+    rotationY,
+    rotationX,
     zoom,
-    onRotationChange,
+    onRotationYChange,
+    onRotationXChange,
     onZoomChange,
-    touchEnabled
+    touchEnabled,
+    theme,
+    viewType,
+    autoRotate
 }: CustomizerScreenProps) {
     const [loading, setLoading] = useState(true);
+    const bgColor = theme === 'dark' ? '#111' : '#f0f0f0';
 
-
-    const rotationRef = useRef(rotation);
+    const rotationYRef = useRef(rotationY);
+    const rotationXRef = useRef(rotationX);
     const zoomRef = useRef(zoom);
-
 
     useEffect(() => {
         const timer = setTimeout(() => setLoading(false), 500);
@@ -119,21 +166,14 @@ export default function CustomizerScreen({
     const panResponder = useMemo(() => PanResponder.create({
         onStartShouldSetPanResponder: () => touchEnabled,
         onMoveShouldSetPanResponder: () => touchEnabled,
-
-        onPanResponderGrant: (e) => {
-
-        },
-
         onPanResponderMove: (e, gestureState) => {
             if (e.nativeEvent.touches.length === 2) {
-
                 const touch1 = e.nativeEvent.touches[0];
                 const touch2 = e.nativeEvent.touches[1];
                 const currentDistance = Math.sqrt(
                     Math.pow(touch2.pageX - touch1.pageX, 2) +
                     Math.pow(touch2.pageY - touch1.pageY, 2)
                 );
-
 
                 if (!(panResponder as any)._lastDist) {
                     (panResponder as any)._lastDist = currentDistance;
@@ -142,37 +182,36 @@ export default function CustomizerScreen({
 
                 const delta = ((panResponder as any)._lastDist - currentDistance) * 0.02;
                 (panResponder as any)._lastDist = currentDistance;
-
                 zoomRef.current = Math.max(3, Math.min(10, zoomRef.current + delta));
             } else if (e.nativeEvent.touches.length === 1) {
-
-
-
-                rotationRef.current += gestureState.vx * 0.1; // Use velocity for extra smoothness
-
-
                 const lastDx = (panResponder as any)._lastDx || 0;
-                const deltaX = (gestureState.dx - lastDx) * 0.01;
-                (panResponder as any)._lastDx = gestureState.dx;
+                const lastDy = (panResponder as any)._lastDy || 0;
 
-                rotationRef.current += deltaX;
+                const deltaX = (gestureState.dx - lastDx) * 0.01;
+                const deltaY = (gestureState.dy - lastDy) * 0.01;
+
+                (panResponder as any)._lastDx = gestureState.dx;
+                (panResponder as any)._lastDy = gestureState.dy;
+
+                rotationYRef.current += deltaX;
+                rotationXRef.current = Math.max(-1.2, Math.min(1.2, rotationXRef.current + deltaY));
             }
         },
-
         onPanResponderRelease: () => {
             (panResponder as any)._lastDist = null;
             (panResponder as any)._lastDx = 0;
+            (panResponder as any)._lastDy = 0;
 
-
-            onRotationChange(rotationRef.current);
+            onRotationYChange(rotationYRef.current);
+            onRotationXChange(rotationXRef.current);
             onZoomChange(zoomRef.current);
         },
-    }), [touchEnabled, onRotationChange, onZoomChange]);
+    }), [touchEnabled]);
 
     return (
-        <View style={styles.container} {...panResponder.panHandlers}>
+        <View style={[styles.container, { backgroundColor: bgColor }]} {...panResponder.panHandlers}>
             {loading && (
-                <View style={styles.loader}>
+                <View style={[styles.loader, { backgroundColor: bgColor }]}>
                     <ActivityIndicator size="large" color="#3b82f6" />
                     <Text style={styles.loadingText}>Initializing Studio...</Text>
                 </View>
@@ -181,24 +220,22 @@ export default function CustomizerScreen({
             <Canvas
                 shadows
                 camera={{ position: [5, 2, 5], fov: 45 }}
-                gl={{
-                    antialias: true,
-                    powerPreference: 'high-performance',
-                    precision: 'lowp'
-                }}
+                gl={{ antialias: true, powerPreference: 'high-performance' }}
             >
-                <color attach="background" args={['#111']} />
-
-                <ambientLight intensity={0.5} />
-                <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
-                <hemisphereLight args={['#ffffff', '#222222', 0.4]} />
-
+                <color attach="background" args={[bgColor]} />
+                <ambientLight intensity={theme === 'dark' ? 0.5 : 0.8} />
+                <directionalLight position={[10, 10, 5]} intensity={1.5} castShadow />
+                <hemisphereLight args={['#ffffff', theme === 'dark' ? '#222' : '#888', 0.6]} />
                 <Suspense fallback={null}>
                     <SceneController
-                        targetRotation={rotation}
+                        targetRotationY={rotationY}
+                        targetRotationX={rotationX}
                         targetZoom={zoom}
-                        rotationRef={rotationRef}
+                        rotationYRef={rotationYRef}
+                        rotationXRef={rotationXRef}
                         zoomRef={zoomRef}
+                        viewType={viewType}
+                        autoRotate={autoRotate}
                     />
                 </Suspense>
             </Canvas>
@@ -209,13 +246,11 @@ export default function CustomizerScreen({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#111',
     },
     loader: {
         ...StyleSheet.absoluteFillObject,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#111',
         zIndex: 999,
     },
     loadingText: {
