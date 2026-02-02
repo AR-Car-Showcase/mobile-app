@@ -1,59 +1,67 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import ColorPickerWheel from 'react-native-wheel-color-picker';
 
 interface ColorPickerProps {
-    onColorChange: (name: string, code: string) => void;
-    selectedColor?: string;
+    onColorChange: (materialName: string, colorHex: string) => void;
+    activeMaterial: string;
+    setActiveMaterial: (name: string) => void;
+    currentColors: { [key: string]: string };
 }
 
-export default function ColorPicker({ onColorChange, selectedColor = '#FFFFFF' }: ColorPickerProps) {
-    const colors = [
-        { name: 'Red', code: '#FF0000' },
-        { name: 'Orange', code: '#FF8C00' },
-        { name: 'Yellow', code: '#FFD700' },
-        { name: 'Green', code: '#00FF00' },
-        { name: 'Blue', code: '#0080FF' },
-        { name: 'Indigo', code: '#4B0082' },
-        { name: 'Purple', code: '#9370DB' },
-        { name: 'Silver', code: '#C0C0C0' },
-        { name: 'White', code: '#FFFFFF' },
-        { name: 'Black', code: '#1a1a1a' },
-    ];
+const MATERIAL_SLOTS = [
+    { id: 'CAR_BODY_PRIMARY', label: 'Main Body' },
+    { id: 'CAR_BODY_SECONDARY', label: 'Accent Finish' },
+    { id: 'CAR_INTERIOR_1', label: 'Dashboard & Console' },
+    { id: 'CAR_INTERIOR_2', label: 'Seat Upholstery' },
+    { id: 'CAR_INTERIOR_3', label: 'Interior Trims' },
+    { id: 'CAR_RIM', label: 'Wheel Rims' },
+    { id: 'CARBON_MATERIAL_1', label: 'Carbon Fiber' },
+];
 
-    const [selected, setSelected] = useState(selectedColor);
+export default function ColorPicker({
+    onColorChange,
+    activeMaterial,
+    setActiveMaterial,
+    currentColors
+}: ColorPickerProps) {
+    const selected = currentColors[activeMaterial] || '#FFFFFF';
+    const ColorPickerComp = ColorPickerWheel as any;
 
-    const handleColorSelect = (color: { name: string; code: string }) => {
-        setSelected(color.code);
-        onColorChange(color.name, color.code);
+    const onColorChangeWheel = (color: string) => {
+        onColorChange(activeMaterial, color);
     };
-
-    const selectedColorName = colors.find(c => c.code === selected)?.name || 'White';
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Color: {selectedColorName}</Text>
-            <View style={styles.grid}>
-                {colors.map((color) => (
+            <View style={styles.slotSelector}>
+                {MATERIAL_SLOTS.map(slot => (
                     <TouchableOpacity
-                        key={color.code}
+                        key={slot.id}
                         style={[
-                            styles.colorSwatch,
-                            { backgroundColor: color.code },
-                            selected === color.code && styles.selectedSwatch,
+                            styles.slotButton,
+                            activeMaterial === slot.id && styles.activeSlotButton
                         ]}
-                        onPress={() => handleColorSelect(color)}
-                        activeOpacity={0.7}
+                        onPress={() => setActiveMaterial(slot.id)}
                     >
-                        {selected === color.code && (
-                            <Ionicons
-                                name="checkmark-circle"
-                                size={24}
-                                color={color.code === '#FFFFFF' || color.code === '#FFD700' ? '#000' : '#fff'}
-                            />
-                        )}
+                        <Text style={[
+                            styles.slotText,
+                            activeMaterial === slot.id && styles.activeSlotText
+                        ]}>{slot.label}</Text>
                     </TouchableOpacity>
                 ))}
+            </View>
+
+            <View style={styles.pickerWrapper}>
+                <ColorPickerComp
+                    color={selected}
+                    onColorChangeComplete={onColorChangeWheel}
+                    thumbSize={20}
+                    sliderSize={20}
+                    noSnap={true}
+                    row={false}
+                    swatches={false}
+                />
             </View>
         </View>
     );
@@ -61,41 +69,40 @@ export default function ColorPicker({ onColorChange, selectedColor = '#FFFFFF' }
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: 'rgba(0,0,0,0.85)',
-        borderRadius: 16,
-        padding: 16,
-        marginHorizontal: 10,
+        backgroundColor: 'transparent',
+        padding: 0,
+        height: 340,
+        width: '100%',
     },
-    title: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 12,
-        textAlign: 'center',
+    pickerWrapper: {
+        flex: 1,
+        paddingBottom: 20,
     },
-    grid: {
+    slotSelector: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        gap: 12,
-    },
-    colorSwatch: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        borderWidth: 3,
-        borderColor: 'rgba(255,255,255,0.3)',
-        alignItems: 'center',
+        gap: 6,
+        marginBottom: 15,
         justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 5,
     },
-    selectedSwatch: {
-        borderColor: '#fff',
-        borderWidth: 4,
-        transform: [{ scale: 1.1 }],
+    slotButton: {
+        paddingVertical: 5,
+        paddingHorizontal: 8,
+        borderRadius: 10,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    activeSlotButton: {
+        backgroundColor: '#3b82f6',
+        borderColor: '#60a5fa',
+    },
+    slotText: {
+        color: '#ccc',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    activeSlotText: {
+        color: '#fff',
     },
 });

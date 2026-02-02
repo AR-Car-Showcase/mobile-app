@@ -4,7 +4,9 @@ const BLENDER_SERVICE_URL = 'http://192.168.0.7:5000';
 
 
 export interface CarConfig {
-    body_color: string;
+    materials: {
+        [key: string]: string;
+    };
 }
 
 export interface GenerateResult {

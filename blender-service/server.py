@@ -72,7 +72,7 @@ def generate():
         blender_config = {
             "base_model": CAR_MODEL_PATH,
             "output_path": output_path,
-            "body_color": config.get("body_color", "#FFFFFF")
+            "materials": config.get("materials", {})
         }
 
         config_path = os.path.join(GENERATED_DIR, f"config_{model_id}.json")

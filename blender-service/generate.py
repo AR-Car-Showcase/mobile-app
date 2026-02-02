@@ -19,19 +19,13 @@ def clear_scene():
             if block.users == 0:
                 data.remove(block)
 
-def apply_color(color_hex):
-    rgb = hex_to_rgb(color_hex)
+def apply_material_colors(material_map):
     count = 0
-
-    keywords = [
-        "body", "paint", "exterior", "coloured",
-        "base", "chassis", "hood", "door",
-        "fender", "bumper", "material"
-    ]
-
     for mat in bpy.data.materials:
-        name = mat.name.lower()
-        if any(k in name for k in keywords):
+        if mat.name in material_map:
+            color_hex = material_map[mat.name]
+            rgb = hex_to_rgb(color_hex)
+            
             if mat.use_nodes:
                 for node in mat.node_tree.nodes:
                     if node.type == "BSDF_PRINCIPLED":
@@ -43,7 +37,7 @@ def apply_color(color_hex):
             else:
                 mat.diffuse_color = (*rgb, 1.0)
                 count += 1
-
+    
     print(f"INFO: Modified {count} materials")
 
 # --------------------------------------------------
@@ -61,26 +55,23 @@ def main():
 
     base_model = config["base_model"]
     output_path = config["output_path"]
-    body_color = config.get("body_color", "#FFFFFF")
+    materials = config.get("materials", {})
 
     clear_scene()
 
-    print("INFO: Importing model:", base_model)
+    print("[INFO] Importing model:", base_model)
     bpy.ops.import_scene.gltf(filepath=base_model)
 
-    apply_color(body_color)
+    apply_material_colors(materials)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    print("INFO: Exporting model:", output_path)
     bpy.ops.export_scene.gltf(
         filepath=output_path,
         export_format="GLB",
         export_apply=True,
         export_materials="EXPORT"
     )
-
-    print("SUCCESS: Model generation complete")
 
 # --------------------------------------------------
 

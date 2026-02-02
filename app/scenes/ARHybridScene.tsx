@@ -19,46 +19,63 @@ export default function ARHybridScene(props?: any) {
 
     const navigator = props.arSceneNavigator || props.sceneNavigator;
     const viroAppProps = navigator?.viroAppProps;
-    const { selectedColorCode, customModelUrl, sceneRef } = viroAppProps || {};
-
-    console.log('INFO: ARHybridScene Component Keys:', Object.keys(props));
-    console.log('INFO: Navigator Interface Keys:', Object.keys(props.arSceneNavigator));
-    console.log('INFO: ViroAppProps verification:', !!props.arSceneNavigator?.viroAppProps);
-    const modelUrl = props.arSceneNavigator?.viroAppProps?.customModelUrl;
-    console.log('INFO: Requesting Model URL:', modelUrl);
-
-    console.log('INFO: AR Model Architecture:', customModelUrl ? 'BAKED (Remote)' : 'DYNAMIC (Local)');
-    if (customModelUrl) console.log('INFO: URL:', customModelUrl);
+    const { materials, customModelUrl, sceneRef, showCustomized } = viroAppProps || {};
 
     useEffect(() => {
-        if (!customModelUrl && selectedColorCode) {
-            console.log('INFO: Fallback Mode: Customizing Materials:', selectedColorCode);
-            ViroMaterials.createMaterials({
-                body: { lightingModel: 'PBR', diffuseColor: selectedColorCode, metalness: 0.2, roughness: 0.5 },
-                body2: { lightingModel: 'PBR', diffuseColor: selectedColorCode, metalness: 0.2, roughness: 0.5 },
-                Coloured_Material: { lightingModel: 'PBR', diffuseColor: selectedColorCode, metalness: 0.2, roughness: 0.5 },
-                Base_Material: { lightingModel: 'PBR', diffuseColor: selectedColorCode, metalness: 0.2, roughness: 0.5 },
-                material: { lightingModel: 'PBR', diffuseColor: selectedColorCode, metalness: 0.2, roughness: 0.5 },
+        const glassMaterial = {
+            lightingModel: 'PBR',
+            diffuseColor: 'rgba(255, 255, 255, 0.2)',
+            blendMode: 'Alpha',
+            shininess: 2.0,
+            metalness: 0.1,
+            roughness: 0.1
+        };
+
+        const materialDefinitions: { [key: string]: any } = {
+            "Glass": glassMaterial,
+            "Window": glassMaterial,
+            "Windshield": glassMaterial,
+            "GLASS": glassMaterial,
+            "WINDOW": glassMaterial,
+            "WINDSHIELD": glassMaterial,
+            "glass": glassMaterial,
+            "window": glassMaterial,
+            "windshield": glassMaterial,
+        };
+
+        if (showCustomized && !customModelUrl && materials) {
+            Object.keys(materials).forEach(matName => {
+                materialDefinitions[matName] = {
+                    lightingModel: 'PBR',
+                    diffuseColor: materials[matName],
+                    metalness: 0.2,
+                    roughness: 0.5
+                };
             });
         }
-    }, [selectedColorCode, customModelUrl]);
+
+        ViroMaterials.createMaterials(materialDefinitions);
+    }, [materials, customModelUrl, showCustomized]);
 
     const rotateLeft = useCallback(() => setCarRotation(prev => [prev[0], prev[1] + 30, prev[2]]), []);
     const rotateRight = useCallback(() => setCarRotation(prev => [prev[0], prev[1] - 30, prev[2]]), []);
     const zoomIn = useCallback(() => setCarScale(prev => Math.min(0.3, prev + 0.05)), []);
     const zoomOut = useCallback(() => setCarScale(prev => Math.max(0.05, prev - 0.05)), []);
+    const reset = useCallback(() => {
+        setCarRotation([0, 0, 0]);
+        setCarScale(0.1);
+    }, []);
 
     useEffect(() => {
         if (sceneRef) {
-            sceneRef.current = { rotateLeft, rotateRight, zoomIn, zoomOut };
+            sceneRef.current = { rotateLeft, rotateRight, zoomIn, zoomOut, reset };
         }
-    }, [rotateLeft, rotateRight, zoomIn, zoomOut, sceneRef]);
+    }, [rotateLeft, rotateRight, zoomIn, zoomOut, reset, sceneRef]);
 
     const onPlaneDetected = useCallback((anchor: any) => {
         if (!isPlacedRef.current) {
             isPlacedRef.current = true;
             setAnchorPosition([anchor.position[0], anchor.position[1] + 0.01, anchor.position[2]]);
-            console.log('SUCCESS: World Position Initialized');
         }
     }, []);
 
@@ -73,14 +90,14 @@ export default function ARHybridScene(props?: any) {
 
             <ViroNode position={anchorPosition} scale={[carScale, carScale, carScale]} rotation={carRotation}>
                 <Viro3DObject
-                    key={customModelUrl || selectedColorCode}
-                    source={customModelUrl ? { uri: customModelUrl } : require('../../assets/models/car.glb')}
+                    key={`${showCustomized}-${customModelUrl || JSON.stringify(materials)}`}
+                    source={showCustomized && customModelUrl ? { uri: customModelUrl } : require('../../assets/models/car.glb')}
                     type="GLB"
-                    materials={!customModelUrl ? ['body', 'body2', 'Coloured_Material', 'Base_Material', 'material'] : undefined}
+                    materials={showCustomized && !customModelUrl && materials ? Object.keys(materials) : undefined}
                     resources={[]}
                     scale={[1, 1, 1]}
                     lightReceivingBitMask={1}
-                    onLoadEnd={() => console.log('SUCCESS: 3D Model loaded successfully')}
+                    onLoadEnd={() => console.log('[SUCCESS] 3D Model loaded successfully')}
                 />
             </ViroNode>
         </ViroARScene>
