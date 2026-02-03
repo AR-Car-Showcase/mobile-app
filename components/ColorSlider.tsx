@@ -7,10 +7,11 @@ import {
     Dimensions,
     Text,
 } from 'react-native';
+import { Colors } from '../constants/Colors';
 
 const { width } = Dimensions.get('window');
 const SLIDER_WIDTH = width - 60;
-const POINTER_SIZE = 24;
+const Theme = Colors.dark;
 
 interface ColorSliderProps {
     onColorChange: (color: string, code: string) => void;
@@ -37,8 +38,8 @@ export default function ColorSlider({ onColorChange, initialValue = 0 }: ColorSl
     const panResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
-            onPanResponderMove: (e, gestureState) => {
-                let newX = gestureState.moveX - 20 - 10;
+            onPanResponderMove: (_, gestureState) => {
+                let newX = gestureState.moveX - 30;
 
                 if (newX < 0) newX = 0;
                 if (newX > SLIDER_WIDTH) newX = SLIDER_WIDTH;
@@ -47,14 +48,12 @@ export default function ColorSlider({ onColorChange, initialValue = 0 }: ColorSl
 
                 const idx = Math.round((newX / SLIDER_WIDTH) * (colors.length - 1));
                 if (idx !== selectedIdx && idx >= 0 && idx < colors.length) {
-                    console.log('INFO: Color selected:', colors[idx].name, colors[idx].code);
                     setSelectedIdx(idx);
                     onColorChange(colors[idx].value, colors[idx].code);
                 }
             },
-            onPanResponderRelease: (e, gestureState) => {
-                const currentValue = (pan as any)._value;
-                const idx = Math.round((currentValue / SLIDER_WIDTH) * (colors.length - 1));
+            onPanResponderRelease: () => {
+                const idx = Math.round(((pan as any)._value / SLIDER_WIDTH) * (colors.length - 1));
                 const constrainedIdx = Math.max(0, Math.min(colors.length - 1, idx));
                 const finalX = constrainedIdx * (SLIDER_WIDTH / (colors.length - 1));
 
@@ -101,14 +100,16 @@ const styles = StyleSheet.create({
     container: {
         paddingHorizontal: 20,
         paddingVertical: 16,
-        backgroundColor: 'rgba(0,0,0,0.85)',
+        backgroundColor: 'rgba(20, 20, 20, 0.85)',
         borderRadius: 16,
         marginHorizontal: 10,
+        borderWidth: 1,
+        borderColor: Theme.glassBorder,
     },
     label: {
-        color: '#fff',
+        color: Theme.text,
         fontSize: 15,
-        fontWeight: '600',
+        fontWeight: 'bold',
         marginBottom: 12,
         textAlign: 'center',
     },
@@ -118,11 +119,10 @@ const styles = StyleSheet.create({
         paddingVertical: 5,
     },
     sliderTrack: {
-        height: 16,
+        height: 12,
         flexDirection: 'row',
-        borderRadius: 8,
+        borderRadius: 6,
         overflow: 'hidden',
-        backgroundColor: '#222',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
     },
@@ -134,14 +134,14 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
-        borderWidth: 4,
+        borderWidth: 3,
         borderColor: '#fff',
         top: 6,
         marginLeft: -14,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.8,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.5,
         shadowRadius: 4,
-        elevation: 8,
+        elevation: 5,
     },
 });

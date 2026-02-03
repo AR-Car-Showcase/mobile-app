@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Pressable, Text, StyleSheet, ScrollView } from 'react-native';
+import { Colors } from '../constants/Colors';
 
 interface InteriorSelectorProps {
   selectedInterior: string;
@@ -8,23 +9,27 @@ interface InteriorSelectorProps {
 
 export default function InteriorSelector({ selectedInterior, onInteriorSelect }: InteriorSelectorProps) {
   const interiors = ['Leather', 'Suede', 'Fabric', 'Eco', 'Premium'];
+  const Theme = Colors.dark;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Select Interior</Text>
+    <View style={[styles.container, { backgroundColor: Theme.surface }]}>
+      <Text style={[styles.title, { color: Theme.text }]}>Select Interior</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {interiors.map((interior) => (
-          <Pressable
-            key={interior}
-            style={[
-              styles.interiorButton,
-              selectedInterior === interior && styles.interiorButtonActive,
-            ]}
-            onPress={() => onInteriorSelect(interior)}
-          >
-            <Text style={styles.interiorText}>{interior}</Text>
-          </Pressable>
-        ))}
+        {interiors.map((interior) => {
+          const isActive = selectedInterior === interior;
+          return (
+            <Pressable
+              key={interior}
+              style={[
+                styles.interiorButton,
+                { backgroundColor: isActive ? Theme.success : Theme.surfaceHighlight }
+              ]}
+              onPress={() => onInteriorSelect(interior)}
+            >
+              <Text style={[styles.interiorText, { color: isActive ? '#FFF' : Theme.textSecondary }]}>{interior}</Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -33,10 +38,9 @@ export default function InteriorSelector({ selectedInterior, onInteriorSelect }:
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
   },
   title: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 12,
@@ -45,14 +49,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#333',
     marginRight: 8,
   },
-  interiorButtonActive: {
-    backgroundColor: '#34C759',
-  },
   interiorText: {
-    color: '#fff',
     fontWeight: '600',
   },
 });

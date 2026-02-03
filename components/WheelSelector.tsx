@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Pressable, Text, StyleSheet, ScrollView } from 'react-native';
+import { Colors } from '../constants/Colors';
 
 interface WheelSelectorProps {
   selectedWheel: string;
@@ -8,23 +9,27 @@ interface WheelSelectorProps {
 
 export default function WheelSelector({ selectedWheel, onWheelSelect }: WheelSelectorProps) {
   const wheels = ['Stock', 'Sport', 'Luxury', 'Off-Road', 'Custom'];
+  const Theme = Colors.dark;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Select Wheels</Text>
+    <View style={[styles.container, { backgroundColor: Theme.surface }]}>
+      <Text style={[styles.title, { color: Theme.text }]}>Select Wheels</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {wheels.map((wheel) => (
-          <Pressable
-            key={wheel}
-            style={[
-              styles.wheelButton,
-              selectedWheel === wheel && styles.wheelButtonActive,
-            ]}
-            onPress={() => onWheelSelect(wheel)}
-          >
-            <Text style={styles.wheelText}>{wheel}</Text>
-          </Pressable>
-        ))}
+        {wheels.map((wheel) => {
+          const isActive = selectedWheel === wheel;
+          return (
+            <Pressable
+              key={wheel}
+              style={[
+                styles.wheelButton,
+                { backgroundColor: isActive ? Theme.accent : Theme.surfaceHighlight }
+              ]}
+              onPress={() => onWheelSelect(wheel)}
+            >
+              <Text style={[styles.wheelText, { color: isActive ? '#FFF' : Theme.textSecondary }]}>{wheel}</Text>
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -33,10 +38,9 @@ export default function WheelSelector({ selectedWheel, onWheelSelect }: WheelSel
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
   },
   title: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 12,
@@ -45,14 +49,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#333',
     marginRight: 8,
   },
-  wheelButtonActive: {
-    backgroundColor: '#007AFF',
-  },
   wheelText: {
-    color: '#fff',
     fontWeight: '600',
   },
 });

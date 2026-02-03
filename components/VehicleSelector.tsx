@@ -5,12 +5,12 @@ import {
     FlatList,
     Modal,
     Pressable,
-    StyleSheet,
     Text,
     View,
 } from 'react-native';
 import { carApi, Make, Model, Trim } from '../api/carApi';
 import { Colors } from '../constants';
+import { ComponentStyles } from '../constants/ComponentStyles';
 
 interface VehicleSelectorProps {
     visible: boolean;
@@ -32,6 +32,8 @@ export default function VehicleSelector({ visible, onClose, onSelect }: VehicleS
     const [selectedMake, setSelectedMake] = useState<string | null>(null);
     const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
+    const Theme = Colors.dark;
+
     useEffect(() => {
         if (visible && step === 'year' && years.length === 0) {
             loadYears();
@@ -50,7 +52,7 @@ export default function VehicleSelector({ visible, onClose, onSelect }: VehicleS
             }
             setYears(yearsList);
         } catch (error) {
-            console.error('Error loading years:', error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -63,7 +65,7 @@ export default function VehicleSelector({ visible, onClose, onSelect }: VehicleS
             setMakes(data);
             setStep('make');
         } catch (error) {
-            console.error('Error loading makes:', error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -76,7 +78,7 @@ export default function VehicleSelector({ visible, onClose, onSelect }: VehicleS
             setModels(data);
             setStep('model');
         } catch (error) {
-            console.error('Error loading models:', error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -89,7 +91,7 @@ export default function VehicleSelector({ visible, onClose, onSelect }: VehicleS
             setTrims(data);
             setStep('trim');
         } catch (error) {
-            console.error('Error loading trims:', error);
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -129,37 +131,38 @@ export default function VehicleSelector({ visible, onClose, onSelect }: VehicleS
         }
 
         return (
-            <Pressable style={styles.item} onPress={onPress}>
-                <Text style={styles.itemText}>{label}</Text>
-                <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+            <Pressable style={ComponentStyles.listItem} onPress={onPress}>
+                <Text style={ComponentStyles.listItemText}>{label}</Text>
+                <Ionicons name="chevron-forward" size={20} color={Theme.textSecondary} />
             </Pressable>
         );
     };
 
     return (
         <Modal visible={visible} animationType="slide" transparent={true}>
-            <View style={styles.modalContainer}>
-                <View style={styles.content}>
-                    <View style={styles.header}>
-                        <Pressable onPress={step === 'year' ? onClose : handleBack} style={styles.backButton}>
-                            <Ionicons name={step === 'year' ? 'close' : 'arrow-back'} size={24} color={Colors.text} />
+            <View style={ComponentStyles.modalContainer}>
+                <View style={[ComponentStyles.modalContent, { height: '70%' }]}>
+                    <View style={ComponentStyles.modalHeader}>
+                        <Pressable onPress={step === 'year' ? onClose : handleBack} style={ComponentStyles.modalCloseButton}>
+                            <Ionicons name={step === 'year' ? 'close' : 'arrow-back'} size={24} color={Theme.text} />
                         </Pressable>
-                        <Text style={styles.title}>
+                        <Text style={ComponentStyles.modalTitle}>
                             {step === 'year' ? 'Select Year' : step === 'make' ? 'Select Make' : step === 'model' ? 'Select Model' : 'Select Trim'}
                         </Text>
                         <View style={{ width: 40 }} />
                     </View>
 
                     {loading ? (
-                        <View style={styles.center}>
-                            <ActivityIndicator size="large" color={Colors.accentLight} />
+                        <View style={ComponentStyles.center}>
+                            <ActivityIndicator size="large" color={Theme.accent} />
                         </View>
                     ) : (
                         <FlatList
                             data={step === 'year' ? years : step === 'make' ? makes : step === 'model' ? models : trims}
                             renderItem={renderItem}
                             keyExtractor={(item, index) => index.toString()}
-                            contentContainerStyle={styles.list}
+                            contentContainerStyle={{ paddingBottom: 40 }}
+                            showsVerticalScrollIndicator={false}
                         />
                     )}
                 </View>
@@ -167,53 +170,3 @@ export default function VehicleSelector({ visible, onClose, onSelect }: VehicleS
         </Modal>
     );
 }
-
-const styles = StyleSheet.create({
-    modalContainer: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
-    },
-    content: {
-        backgroundColor: '#1a1a1a',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        height: '80%',
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#333',
-    },
-    backButton: {
-        padding: 8,
-    },
-    title: {
-        color: Colors.text,
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    list: {
-        paddingBottom: 40,
-    },
-    item: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#333',
-    },
-    itemText: {
-        color: Colors.text,
-        fontSize: 16,
-    },
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-});
