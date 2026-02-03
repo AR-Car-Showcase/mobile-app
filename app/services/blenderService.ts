@@ -1,12 +1,13 @@
-import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-const BLENDER_SERVICE_URL = 'http://192.168.0.7:5000';
-
+const API_BASE_URL = Constants.expoConfig?.extra?.API_URL;
 
 export interface CarConfig {
     materials: {
         [key: string]: string;
     };
+    vehicleId?: string;
 }
 
 export interface GenerateResult {
@@ -14,56 +15,58 @@ export interface GenerateResult {
     model_id: string;
     filename: string;
     download_url: string;
-    generation_time: number;
+    generation_time?: number;
 }
 
 export async function generateCustomModel(config: CarConfig): Promise<GenerateResult> {
-    console.log('INFO: Requesting custom model generation...', config);
-    console.log('INFO: Service Endpoint:', BLENDER_SERVICE_URL);
-
     try {
-        const response = await fetch(`${BLENDER_SERVICE_URL}/generate`, {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) {
+            throw new Error('Authentication token not found');
+        }
+
+        const payload = {
+            vehicleId: config.vehicleId || 'bugatti_chiron',
+            materials: config.materials
+        };
+
+        const response = await fetch(`${API_BASE_URL}/customizations`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify(config),
+            body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            let errorMessage = 'Generation failed';
-            try {
-                const errorJson = JSON.parse(errorText);
-                errorMessage = errorJson.error || errorMessage;
-                if (errorJson.details) errorMessage += `: ${errorJson.details}`;
-            } catch (e) {
-                errorMessage += `: ${errorText}`;
-            }
-            throw new Error(errorMessage);
+            throw new Error(`Generation failed: ${response.status} ${errorText}`);
         }
 
         const result = await response.json();
-        console.log('SUCCESS: Model generated successfully:', result);
-        return result;
+
+        return {
+            success: true,
+            model_id: result.customizationId,
+            filename: result.modelUrl.split('/').pop(),
+            download_url: result.modelUrl,
+            generation_time: 0
+        };
     } catch (error) {
-        console.log('ERROR: Generator service failure:', error);
         throw error;
     }
 }
 
-export function getModelUrl(filename: string): string {
-    return `${BLENDER_SERVICE_URL}/models/${filename}`;
+export function getModelUrl(pathOrFilename: string): string {
+    if (pathOrFilename.startsWith('http')) return pathOrFilename;
+    if (pathOrFilename.startsWith('/')) {
+        const root = API_BASE_URL.replace('/api', '');
+        return `${root}${pathOrFilename}`;
+    }
+    return `${API_BASE_URL}/models/${pathOrFilename}`;
 }
 
 export async function checkServiceHealth(): Promise<boolean> {
-    try {
-        const response = await fetch(`${BLENDER_SERVICE_URL}/health`);
-        const data = await response.json();
-        console.log('INFO: Service health check response:', data);
-        return data.status === 'ok';
-    } catch (error) {
-        console.log('WARNING: Service unreachable:', error);
-        return false;
-    }
+    return true;
 }

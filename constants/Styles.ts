@@ -1,5 +1,7 @@
 import { StyleSheet } from 'react-native';
-import { Colors } from './Colors';
+import { Colors as ColorPalette } from './Colors';
+
+const Colors = ColorPalette.dark;
 
 export const CommonStyles = StyleSheet.create({
   container: {
@@ -233,39 +235,39 @@ export const ARStyles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   controlButtons: {
-  position: 'absolute',
-  bottom: 40,
-  left: 20,
-  right: 20,
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  zIndex: 100,
-},
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    zIndex: 100,
+  },
 
-rotationButtons: {
-  flexDirection: 'row',
-  gap: 12,
-},
+  rotationButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
 
-zoomButtons: {
-  flexDirection: 'row',
-  gap: 12,
-},
+  zoomButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
 
-controlBtn: {
-  width: 56,
-  height: 56,
-  borderRadius: 28,
-  backgroundColor: Colors.glassOverlay,
-  borderWidth: 1,
-  borderColor: Colors.glassBorder,
-  justifyContent: 'center',
-  alignItems: 'center',
-  elevation: 4,
-  shadowColor: Colors.shadowColor,
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.3,
-  shadowRadius: 4,
-},
+  controlBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.glassOverlay,
+    borderWidth: 1,
+    borderColor: Colors.glassBorder,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: Colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
 
 });

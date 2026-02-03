@@ -1,7 +1,6 @@
 import Constants from 'expo-constants';
 
-const BASE_URL = Constants.expoConfig?.extra?.API_URL;
-
+const BASE_URL = `${Constants.expoConfig?.extra?.API_URL}/cars`;
 
 export interface Make {
     make_id: string;
@@ -55,8 +54,6 @@ export interface Trim {
     model_make_display: string;
 }
 
-
-
 export interface Year {
     min_year: string;
     max_year: string;
@@ -64,27 +61,27 @@ export interface Year {
 
 export const carApi = {
     getYears: async (): Promise<Year> => {
-        const response = await fetch(`${BASE_URL}/years`);
+        const response = await fetch(`${BASE_URL}/cars/years`);
         if (!response.ok) throw new Error('Failed to fetch years');
         return response.json();
     },
 
     getMakes: async (year?: number): Promise<Make[]> => {
-        const url = year ? `${BASE_URL}/makes?year=${year}` : `${BASE_URL}/makes`;
+        const url = year ? `${BASE_URL}/cars/makes?year=${year}` : `${BASE_URL}/cars/makes`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch makes');
         return response.json();
     },
 
     getModels: async (make: string, year?: number): Promise<Model[]> => {
-        const url = year ? `${BASE_URL}/models?make=${make}&year=${year}` : `${BASE_URL}/models?make=${make}`;
+        const url = year ? `${BASE_URL}/cars/models?make=${make}&year=${year}` : `${BASE_URL}/models?make=${make}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch models');
         return response.json();
     },
 
     getTrims: async (make: string, model?: string, year?: number): Promise<Trim[]> => {
-        let url = `${BASE_URL}/trims?make=${make}`;
+        let url = `${BASE_URL}/cars/trims?make=${make}`;
         if (model) url += `&model=${model}`;
         if (year) url += `&year=${year}`;
         const response = await fetch(url);
