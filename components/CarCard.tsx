@@ -12,10 +12,19 @@ interface CarCardProps {
     price: string;
     rating?: number;
     featured?: boolean;
+    onPress?: () => void;
 }
 
-export default function CarCard({ id, name, image, price, rating, featured }: CarCardProps) {
+export default function CarCard({ id, name, image, price, rating, featured, onPress }: CarCardProps) {
     const { colors } = useTheme();
+
+    const handlePress = () => {
+        if (onPress) {
+            onPress();
+        } else {
+            router.push({ pathname: '/details', params: { id } });
+        }
+    };
 
     return (
         <Pressable
@@ -24,7 +33,7 @@ export default function CarCard({ id, name, image, price, rating, featured }: Ca
                 { backgroundColor: colors.surface },
                 featured && styles.featuredContainer
             ]}
-            onPress={() => router.push({ pathname: '/details', params: { id } })}
+            onPress={handlePress}
         >
             <Image source={{ uri: image }} style={[styles.image, featured && styles.featuredImage]} resizeMode="cover" />
             <View style={styles.content}>

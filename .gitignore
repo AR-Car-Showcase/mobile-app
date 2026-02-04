@@ -41,3 +41,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Data
+assets/formatted_cars_data.json

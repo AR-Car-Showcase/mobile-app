@@ -1,30 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import CarCard from '../../../components/CarCard';
 import { router } from 'expo-router';
-
-const MOCK_CARS = [
-    { id: '1', name: 'Bugatti Chiron', price: '$3,000,000', image: 'https://images.unsplash.com/photo-1597687843302-f8c5c4c474d2?q=80&w=1000&auto=format&fit=crop', rating: 4.9 },
-    { id: '2', name: 'Lamborghini Aventador', price: '$500,000', image: 'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?q=80&w=1000&auto=format&fit=crop', rating: 4.8 },
-    { id: '3', name: 'Porsche 911 GT3', price: '$180,000', image: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=1000&auto=format&fit=crop', rating: 4.8 },
-    { id: '4', name: 'Ferrari SF90', price: '$600,000', image: 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?q=80&w=1000&auto=format&fit=crop', rating: 4.7 },
-    { id: '5', name: 'McLaren 720S', price: '$300,000', image: 'https://images.unsplash.com/photo-1627454820574-fb8ec456ad4c?q=80&w=1000&auto=format&fit=crop', rating: 4.6 },
-    { id: '6', name: 'Aston Martin DB11', price: '$220,000', image: 'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?q=80&w=1000&auto=format&fit=crop', rating: 4.5 },
-];
-
-const FILTERS = ['All', 'Sports', 'SUV', 'Electric', 'Concept'];
+import { getAllCars, getBodyTypes, getCarsByBodyType } from '../../../api/cars';
+import { Car } from '../../../types/car';
 
 export default function ExploreScreen() {
     const { colors } = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState('All');
+    const [cars, setCars] = useState<Car[]>([]);
+    const [filteredCars, setFilteredCars] = useState<Car[]>([]);
+    const [filters, setFilters] = useState<string[]>(['All']);
 
-    const filteredCars = MOCK_CARS.filter(car =>
-        car.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        (activeFilter === 'All' || activeFilter === 'Sports')
-    );
+    useEffect(() => {
+        loadCars();
+    }, []);
+
+    const loadCars = async () => {
+        const allCars = await getAllCars();
+        const bodyTypes = await getBodyTypes();
+        setCars(allCars);
+        setFilteredCars(allCars);
+        setFilters(['All', ...bodyTypes]);
+    };
+
+    useEffect(() => {
+        filterCars();
+    }, [searchQuery, activeFilter, cars]);
+
+    const filterCars = async () => {
+        let result: Car[] = cars;
+
+        if (activeFilter !== 'All') {
+            result = await getCarsByBodyType(activeFilter);
+        }
+
+        if (searchQuery) {
+            result = result.filter(car =>
+                car.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                car.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                car.body_type.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        setFilteredCars(result);
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -50,7 +73,7 @@ export default function ExploreScreen() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.filtersList}
                 >
-                    {FILTERS.map((filter) => (
+                    {filters.map((filter) => (
                         <Pressable
                             key={filter}
                             style={[
@@ -72,17 +95,18 @@ export default function ExploreScreen() {
 
             <FlatList
                 data={filteredCars}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, index) => `${item.brand}-${item.model}-${index}`}
                 numColumns={2}
                 contentContainerStyle={styles.gridContainer}
                 columnWrapperStyle={styles.row}
-                renderItem={({ item }) => (
+                renderItem={({ item, index }) => (
                     <CarCard
-                        id={item.id}
-                        name={item.name}
-                        image={item.image}
-                        price={item.price}
-                        rating={item.rating}
+                        id={`${item.brand}-${item.model}-${index}`}
+                        name={`${item.brand.charAt(0).toUpperCase() + item.brand.slice(1)} ${item.model.charAt(0).toUpperCase() + item.model.slice(1)}`}
+                        image={item.images.exterior[1] || item.images.exterior[0]}
+                        price={item.price_range}
+                        rating={parseFloat(item.rating) || 4.5}
+                        onPress={() => router.push(`/details?brand=${item.brand}&model=${item.model}`)}
                     />
                 )}
                 ListEmptyComponent={
@@ -98,7 +122,6 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 60,
     },
     header: {
         paddingHorizontal: 16,

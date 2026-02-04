@@ -1,62 +1,69 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, Image, Dimensions } from 'react-native';
 import { CommonStyles } from '../../constants';
 import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
-import LoginRequiredModal from '../../components/LoginRequiredModal';
+import { getCarByBrandAndModel } from '../../api/cars';
+import { Car } from '../../types/car';
 
-
-const MOCK_DB = [
-    { id: '1', model_make_display: 'Bugatti', model_name: 'Chiron', model_year: '2023', model_trim: 'Sport', model_price: '$3,000,000', model_engine_cc: '8000', model_transmission_type: 'DSG', model_drive: 'AWD', image: 'https://images.unsplash.com/photo-1597687843302-f8c5c4c474d2?q=80&w=1000&auto=format&fit=crop' },
-    { id: '2', model_make_display: 'Lamborghini', model_name: 'Aventador', model_year: '2022', model_trim: 'SVJ', model_price: '$500,000', model_engine_cc: '6500', model_transmission_type: 'ISR', model_drive: 'AWD', image: 'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?q=80&w=1000&auto=format&fit=crop' },
-    { id: '3', model_make_display: 'Porsche', model_name: '911', model_year: '2024', model_trim: 'GT3', model_price: '$180,000', model_engine_cc: '4000', model_transmission_type: 'PDK', model_drive: 'RWD', image: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=1000&auto=format&fit=crop' },
-];
+const { width } = Dimensions.get('window');
 
 export default function VehicleDetailsScreen() {
     const params = useLocalSearchParams();
     const { colors } = useTheme();
-    const { isAuthenticated } = useAuth();
-    const [vehicle, setVehicle] = useState<any>(null);
-    const [loginModalVisible, setLoginModalVisible] = useState(false);
+    const [car, setCar] = useState<Car | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [selectedImageType, setSelectedImageType] = useState<'exterior' | 'interior'>('exterior');
 
     useEffect(() => {
-        if (params.vehicle) {
-            setVehicle(JSON.parse(params.vehicle as string));
-        } else if (params.id) {
-            const found = MOCK_DB.find(c => c.id === params.id);
-            if (found) setVehicle(found);
-        }
+        loadCarData();
     }, [params]);
 
-    if (!vehicle) {
+    const loadCarData = async () => {
+        if (params.brand && params.model) {
+            const carData = await getCarByBrandAndModel(
+                params.brand as string,
+                params.model as string
+            );
+            if (carData) {
+                setCar(carData);
+            }
+        }
+        setLoading(false);
+    };
+
+    if (loading || !car) {
         return (
             <View style={[CommonStyles.container, styles.center, { backgroundColor: colors.background }]}>
-                <Text style={[styles.errorText, { color: colors.text }]}>Loading vehicle data...</Text>
+                <Text style={[styles.errorText, { color: colors.text }]}>
+                    {loading ? 'Loading car data...' : 'Car not found'}
+                </Text>
             </View>
         );
     }
 
-    const renderDetailRow = (label: string, value: string | number | null, icon?: string) => {
+    const currentImages = selectedImageType === 'exterior' ? car.images.exterior : car.images.interior;
+    const displayName = `${car.brand.charAt(0).toUpperCase() + car.brand.slice(1)} ${car.model.charAt(0).toUpperCase() + car.model.slice(1)}`;
+
+    const renderSpec = (label: string, value: any, icon?: string) => {
         if (value === null || value === undefined || value === '') return null;
         return (
-            <View style={[styles.detailRow, { borderBottomColor: colors.border }]} key={label}>
-                <View style={styles.labelContainer}>
-                    {icon && <MaterialCommunityIcons name={icon as any} size={18} color={colors.accentLight} style={styles.icon} />}
-                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>{label}</Text>
+            <View style={[styles.specItem, { backgroundColor: colors.surface }]} key={label}>
+                {icon && <MaterialCommunityIcons name={icon as any} size={20} color={colors.accent} />}
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.specLabel, { color: colors.textSecondary }]}>{label}</Text>
+                    <Text style={[styles.specValue, { color: colors.text }]}>
+                        {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}
+                    </Text>
                 </View>
-                <Text style={[styles.detailValue, { color: colors.text }]}>{value}</Text>
             </View>
         );
     };
 
-    const renderSection = (title: string, children: React.ReactNode) => (
-        <View style={styles.section} key={title}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
-            <View style={[styles.sectionContent, { backgroundColor: colors.surface, borderColor: colors.border }]}>{children}</View>
-        </View>
-    );
+    // Extract key specifications from the first spec object
+    const keySpecs = car.specs[Object.keys(car.specs)[0]] || {};
 
     return (
         <View style={[CommonStyles.container, { backgroundColor: colors.background }]}>
@@ -65,225 +72,351 @@ export default function VehicleDetailsScreen() {
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </Pressable>
                 <View style={styles.headerTitleContainer}>
-                    <Text style={[styles.headerTitle, { color: colors.text }]}>{vehicle.model_make_display}</Text>
-                    <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>{vehicle.model_name} {vehicle.model_year}</Text>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>{displayName}</Text>
+                    <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                        {car.body_type} • {car.fuel_type}
+                    </Text>
                 </View>
                 <Pressable style={styles.backButton}>
-                    <Ionicons name="heart-outline" size={24} color={colors.text} />
+                    <Ionicons name="heart-outline" size={24} color={colors.accent} />
                 </Pressable>
             </View>
 
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                {/* Image Placeholder */}
                 <Image
-                    source={{ uri: vehicle.image || 'https://images.unsplash.com/photo-1617788138017-80ad40651399?q=80&w=1000&auto=format&fit=crop' }}
+                    source={{ uri: currentImages[selectedImageIndex] || 'https://images.unsplash.com/photo-1617788138017-80ad40651399?q=80&w=1000&auto=format&fit=crop' }}
                     style={styles.heroImage}
                     resizeMode="cover"
                 />
 
-                <View style={[styles.heroCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <View>
-                            <Text style={[styles.trimName, { color: colors.text }]}>{vehicle.model_trim || 'Base Trim'}</Text>
-                            <Text style={{ color: colors.accent, fontSize: 18, fontWeight: 'bold' }}>{vehicle.model_price || 'Price TBD'}</Text>
-                        </View>
-                    </View>
-
-                    <View style={styles.mainSpecs}>
-                        <View style={styles.mainSpecItem}>
-                            <Text style={[styles.mainSpecValue, { color: colors.text }]}>{vehicle.model_engine_cc}cc</Text>
-                            <Text style={[styles.mainSpecLabel, { color: colors.textSecondary }]}>Engine</Text>
-                        </View>
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <View style={styles.mainSpecItem}>
-                            <Text style={[styles.mainSpecValue, { color: colors.text }]}>{vehicle.model_transmission_type}</Text>
-                            <Text style={[styles.mainSpecLabel, { color: colors.textSecondary }]}>Trans</Text>
-                        </View>
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                        <View style={styles.mainSpecItem}>
-                            <Text style={[styles.mainSpecValue, { color: colors.text }]}>{vehicle.model_drive}</Text>
-                            <Text style={[styles.mainSpecLabel, { color: colors.textSecondary }]}>Drive</Text>
-                        </View>
-                    </View>
-                </View>
-
-                <View style={styles.actionRow}>
+                <View style={styles.imageTypeSelector}>
                     <Pressable
-                        style={[styles.secondaryButton, { borderColor: colors.accent }]}
-                        onPress={() => router.push('/compare')}
+                        style={[styles.imageTypeBtn, selectedImageType === 'exterior' && { backgroundColor: colors.accent }]}
+                        onPress={() => { setSelectedImageType('exterior'); setSelectedImageIndex(0); }}
                     >
-                        <Text style={{ color: colors.accent, fontWeight: 'bold' }}>Compare</Text>
+                        <Text style={[styles.imageTypeBtnText, { color: selectedImageType === 'exterior' ? '#FFF' : colors.textSecondary }]}>
+                            Exterior ({car.images.exterior.length})
+                        </Text>
                     </Pressable>
                     <Pressable
-                        style={[CommonStyles.actionButton, styles.launchButton, { flex: 1, backgroundColor: colors.accent }]}
-                        onPress={() => {
-                            if (isAuthenticated) {
-                                router.push({ pathname: '/', params: { startAR: 'true', vehicle: JSON.stringify(vehicle) } });
-                            } else {
-                                setLoginModalVisible(true);
-                            }
-                        }}
+                        style={[styles.imageTypeBtn, selectedImageType === 'interior' && { backgroundColor: colors.accent }]}
+                        onPress={() => { setSelectedImageType('interior'); setSelectedImageIndex(0); }}
                     >
-                        <Ionicons name="cube-outline" size={20} color={'#FFF'} />
-                        <Text style={[CommonStyles.actionButtonText, { color: '#FFF' }]}>View in AR</Text>
+                        <Text style={[styles.imageTypeBtnText, { color: selectedImageType === 'interior' ? '#FFF' : colors.textSecondary }]}>
+                            Interior ({car.images.interior.length})
+                        </Text>
                     </Pressable>
                 </View>
 
-                {renderSection('Engine & Performance', [
-                    renderDetailRow('Engine Type', vehicle.model_engine_type, 'engine-outline'),
-                    renderDetailRow('Cylinders', vehicle.model_engine_num_cyl, 'engine-outline'),
-                    renderDetailRow('Valves/Cyl', vehicle.model_engine_valves_per_cyl),
-                    renderDetailRow('Power', vehicle.model_engine_power_ps ? `${vehicle.model_engine_power_ps} PS` : null, 'lightning-bolt-outline'),
-                    renderDetailRow('Torque', vehicle.model_engine_torque_nm ? `${vehicle.model_engine_torque_nm} Nm` : null, 'speedometer-slow'),
-                    renderDetailRow('Top Speed', vehicle.model_top_speed_kph ? `${vehicle.model_top_speed_kph} km/h` : null, 'speedometer'),
-                    renderDetailRow('0-100 km/h', vehicle.model_0_to_100_kph ? `${vehicle.model_0_to_100_kph}s` : null, 'timer-outline'),
-                ])}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageGallery}>
+                    {currentImages.map((imgUrl, index) => (
+                        <Pressable key={index} onPress={() => setSelectedImageIndex(index)}>
+                            <Image
+                                source={{ uri: imgUrl }}
+                                style={[
+                                    styles.thumbnailImage,
+                                    { borderColor: selectedImageIndex === index ? colors.accent : colors.border }
+                                ]}
+                            />
+                        </Pressable>
+                    ))}
+                </ScrollView>
 
+                <View style={[styles.priceCard, { backgroundColor: colors.surface }]}>
+                    <View>
+                        <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>Price Range</Text>
+                        <Text style={[styles.priceValue, { color: colors.accent }]}>{car.price_range}</Text>
+                        <Text style={[styles.priceDetail, { color: colors.textTertiary }]}>
+                            {car.min_price} - {car.max_price}
+                        </Text>
+                    </View>
+                    <View style={styles.ratingContainer}>
+                        <Ionicons name="star" size={20} color="#FFD700" />
+                        <Text style={[styles.ratingText, { color: colors.text }]}>{car.rating}</Text>
+                    </View>
+                </View>
 
+                <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Specs</Text>
+                    <View style={styles.quickSpecsGrid}>
+                        {renderSpec('Body Type', car.body_type, 'car-side')}
+                        {renderSpec('Fuel Type', car.fuel_type, 'fuel')}
+                        {renderSpec('Transmission', car.transmission_type, 'car-shift-pattern')}
+                        {renderSpec('Seating', car.seating_capacity, 'seat')}
+                    </View>
+                </View>
+
+                {car.variants && car.variants.length > 0 && (
+                    <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                            Variants ({car.variants.length})
+                        </Text>
+                        {car.variants.map((variant, index) => (
+                            <View key={index} style={[styles.variantCard, { borderColor: colors.border }]}>
+                                <View style={styles.variantHeader}>
+                                    <Text style={[styles.variantName, { color: colors.text }]}>
+                                        {variant.variant}
+                                    </Text>
+                                    <Text style={[styles.variantPrice, { color: colors.accent }]}>
+                                        {variant.price}
+                                    </Text>
+                                </View>
+                                <View style={styles.variantDetails}>
+                                    <Text style={[styles.variantSpec, { color: colors.textSecondary }]}>
+                                        {variant.engine_cc} • {variant.fuel} • {variant.transmission}
+                                    </Text>
+                                </View>
+                                {variant.key_specifications && variant.key_specifications.length > 0 && (
+                                    <View style={styles.variantFeatures}>
+                                        {variant.key_specifications.map((spec, idx) => (
+                                            <View key={idx} style={[styles.featureBadge, { backgroundColor: colors.background }]}>
+                                                <Text style={[styles.featureText, { color: colors.textSecondary }]}>
+                                                    {spec}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        ))}
+                    </View>
+                )}
+
+                {car.images.colours && car.images.colours.length > 0 && (
+                    <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                            Available Colors ({car.images.colours.length})
+                        </Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorsContainer}>
+                            {car.images.colours.map((colour, index) => (
+                                <Pressable key={index} style={styles.colorCard}>
+                                    <Image source={{ uri: colour.image }} style={styles.colorImage} resizeMode="cover" />
+                                    <Text style={[styles.colorName, { color: colors.text }]} numberOfLines={2}>
+                                        {colour.name}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+
+                {keySpecs && Object.keys(keySpecs).length > 0 && (
+                    <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Full Specifications</Text>
+                        <View style={styles.specsGrid}>
+                            {Object.entries(keySpecs).map(([key, value]) => renderSpec(key, value))}
+                        </View>
+                    </View>
+                )}
+
+                <Pressable
+                    style={[styles.ctaButton, { backgroundColor: colors.accent }]}
+                    onPress={() => router.push('/hybrid')}
+                >
+                    <MaterialCommunityIcons name="rotate-3d-variant" size={24} color="#FFF" />
+                    <Text style={styles.ctaButtonText}>View in 3D & AR</Text>
+                </Pressable>
 
                 <View style={{ height: 40 }} />
             </ScrollView>
-
-            <LoginRequiredModal
-                visible={loginModalVisible}
-                onClose={() => setLoginModalVisible(false)}
-                featureName="AR Viewing"
-            />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     center: {
-        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
     },
     errorText: {
-        fontSize: 18,
-        marginBottom: 20,
+        fontSize: 16,
     },
     header: {
+        padding: 16,
+        paddingTop: 16,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingTop: 60,
-        paddingBottom: 16,
-        paddingHorizontal: 16,
+        gap: 12,
+        elevation: 2,
     },
     backButton: {
         padding: 8,
     },
     headerTitleContainer: {
-        alignItems: 'center',
+        flex: 1,
     },
     headerTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: 'bold',
     },
     headerSubtitle: {
         fontSize: 14,
+        marginTop: 2,
     },
     scrollView: {
         flex: 1,
     },
     heroImage: {
         width: '100%',
-        height: 250,
+        height: 280,
     },
-    heroCard: {
-        margin: 16,
-        padding: 24,
-        borderRadius: 16,
-        borderWidth: 1,
-    },
-    trimName: {
-        fontSize: 22,
-        fontWeight: 'bold',
-    },
-    mainSpecs: {
+    imageTypeSelector: {
         flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        width: '100%',
-        marginTop: 16,
+        padding: 16,
+        gap: 12,
     },
-    mainSpecItem: {
-        alignItems: 'center',
+    imageTypeBtn: {
         flex: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        alignItems: 'center',
     },
-    mainSpecValue: {
-        fontSize: 16,
+    imageTypeBtnText: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    imageGallery: {
+        paddingHorizontal: 16,
+        gap: 12,
+    },
+    thumbnailImage: {
+        width: 100,
+        height: 70,
+        borderRadius: 8,
+        borderWidth: 2,
+    },
+    priceCard: {
+        margin: 16,
+        padding: 16,
+        borderRadius: 12,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    priceLabel: {
+        fontSize: 14,
+    },
+    priceValue: {
+        fontSize: 24,
         fontWeight: 'bold',
-    },
-    mainSpecLabel: {
-        fontSize: 12,
         marginTop: 4,
     },
-    divider: {
-        width: 1,
-        height: 30,
+    priceDetail: {
+        fontSize: 12,
+        marginTop: 2,
+    },
+    ratingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    ratingText: {
+        fontSize: 18,
+        fontWeight: 'bold',
     },
     section: {
-        marginBottom: 24,
-        paddingHorizontal: 16,
+        marginHorizontal: 16,
+        marginBottom: 16,
+        padding: 16,
+        borderRadius: 12,
     },
     sectionTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         marginBottom: 12,
-        marginLeft: 4,
     },
-    sectionContent: {
-        borderRadius: 12,
-        overflow: 'hidden',
+    quickSpecsGrid: {
+        gap: 12,
+    },
+    specItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 8,
+        gap: 12,
+    },
+    specLabel: {
+        fontSize: 12,
+    },
+    specValue: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    variantCard: {
+        padding: 12,
+        borderRadius: 8,
         borderWidth: 1,
+        marginBottom: 12,
     },
-    detailRow: {
+    variantHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 14,
-        borderBottomWidth: 1,
     },
-    labelContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    variantName: {
+        fontSize: 16,
+        fontWeight: '600',
         flex: 1,
     },
-    icon: {
-        marginRight: 10,
-        width: 20,
+    variantPrice: {
+        fontSize: 16,
+        fontWeight: 'bold',
     },
-    detailLabel: {
-        fontSize: 14,
+    variantDetails: {
+        marginTop: 4,
     },
-    detailValue: {
-        fontSize: 14,
-        fontWeight: '500',
-        flex: 1,
-        textAlign: 'right',
+    variantSpec: {
+        fontSize: 13,
     },
-    actionRow: {
+    variantFeatures: {
         flexDirection: 'row',
-        paddingHorizontal: 16,
+        flexWrap: 'wrap',
+        gap: 6,
+        marginTop: 8,
+    },
+    featureBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
+    },
+    featureText: {
+        fontSize: 11,
+    },
+    colorsContainer: {
         gap: 12,
-        marginBottom: 24,
     },
-    launchButton: {
-        marginTop: 0,
+    colorCard: {
+        alignItems: 'center',
+        width: 120,
+    },
+    colorImage: {
+        width: 120,
+        height: 80,
+        borderRadius: 8,
+    },
+    colorName: {
+        fontSize: 12,
+        marginTop: 6,
+        textAlign: 'center',
+    },
+    specsGrid: {
+        gap: 8,
+    },
+    ctaButton: {
+        marginHorizontal: 16,
+        marginTop: 8,
+        padding: 16,
+        borderRadius: 12,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
     },
-    secondaryButton: {
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-        borderWidth: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    }
+    ctaButtonText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
 });

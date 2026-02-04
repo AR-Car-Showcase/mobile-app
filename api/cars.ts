@@ -1,126 +1,106 @@
-import { apiClient } from './client';
+import { Car, BodyType } from '../types/car';
+import formattedCarsData from '../assets/formatted_cars_data.json';
 
-export interface Car {
-    id: string;
-    make: string;
-    model: string;
-    year: number;
-    price: number;
-    image: string;
-    category: 'Sedan' | 'SUV' | 'Sports' | 'Luxury' | 'Electric';
-    featured?: boolean;
-    specs: {
-        engine: string;
-        power: string;
-        acceleration: string;
-        topSpeed: string;
-    };
-}
+const CARS_DATA: Car[] = formattedCarsData as Car[];
 
-const MOCK_CARS: Car[] = [
-    {
-        id: '1',
-        make: 'Bugatti',
-        model: 'Chiron',
-        year: 2022,
-        price: 3000000,
-        image: 'https://images.unsplash.com/photo-1597687843302-f8c5c4c474d2?q=80&w=1000&auto=format&fit=crop',
-        category: 'Sports',
-        featured: true,
-        specs: {
-            engine: '8.0L W16',
-            power: '1500 HP',
-            acceleration: '2.4s',
-            topSpeed: '420 km/h',
-        },
-    },
-    {
-        id: '2',
-        make: 'Tesla',
-        model: 'Model S Plaid',
-        year: 2023,
-        price: 130000,
-        image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?q=80&w=1000&auto=format&fit=crop',
-        category: 'Electric',
-        featured: true,
-        specs: {
-            engine: 'Tri Motor',
-            power: '1020 HP',
-            acceleration: '2.1s',
-            topSpeed: '322 km/h',
-        },
-    },
-    {
-        id: '3',
-        make: 'Porsche',
-        model: '911 GT3',
-        year: 2023,
-        price: 170000,
-        image: 'https://images.unsplash.com/photo-1611821064562-659715a013a7?q=80&w=1000&auto=format&fit=crop',
-        category: 'Sports',
-        featured: false,
-        specs: {
-            engine: '4.0L F6',
-            power: '502 HP',
-            acceleration: '3.4s',
-            topSpeed: '318 km/h',
-        },
-    },
-    {
-        id: '4',
-        make: 'Lamborghini',
-        model: 'Urus',
-        year: 2022,
-        price: 230000,
-        image: 'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?q=80&w=1000&auto=format&fit=crop',
-        category: 'SUV',
-        featured: true,
-        specs: {
-            engine: '4.0L V8',
-            power: '641 HP',
-            acceleration: '3.6s',
-            topSpeed: '305 km/h',
-        },
-    },
-    {
-        id: '5',
-        make: 'BMW',
-        model: 'M4 Competition',
-        year: 2023,
-        price: 85000,
-        image: 'https://images.unsplash.com/photo-1607853202273-797f1c22a38e?q=80&w=1000&auto=format&fit=crop',
-        category: 'Sports',
-        featured: false,
-        specs: {
-            engine: '3.0L I6',
-            power: '503 HP',
-            acceleration: '3.9s',
-            topSpeed: '290 km/h',
-        },
-    },
-];
-
-export const carApiMock = {
-    getFeaturedCars: async (): Promise<Car[]> => {
-        return apiClient.get('/cars/featured').then(() => MOCK_CARS.filter(c => c.featured));
-    },
-
+/**
+ * Mock API for car data - designed for easy backend swap
+ */
+export const carsApi = {
+    /**
+     * Get all cars
+     */
     getAllCars: async (): Promise<Car[]> => {
-        return apiClient.get('/cars').then(() => MOCK_CARS);
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return CARS_DATA;
     },
 
-    searchCars: async (query: string): Promise<Car[]> => {
-        const lowerQuery = query.toLowerCase();
-        return apiClient.get('/cars/search', { query }).then(() =>
-            MOCK_CARS.filter(c =>
-                c.make.toLowerCase().includes(lowerQuery) ||
-                c.model.toLowerCase().includes(lowerQuery) ||
-                c.category.toLowerCase().includes(lowerQuery)
-            )
+    /**
+     * Get cars by body type (SUV, Sedan, Hatchback, etc.)
+     */
+    getCarsByBodyType: async (bodyType: string): Promise<Car[]> => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return CARS_DATA.filter(car =>
+            car.body_type.toLowerCase() === bodyType.toLowerCase()
         );
     },
 
-    getCarById: async (id: string): Promise<Car | undefined> => {
-        return apiClient.get(`/cars/${id}`).then(() => MOCK_CARS.find(c => c.id === id));
+    /**
+     * Get cars by fuel type
+     */
+    getCarsByFuelType: async (fuelType: string): Promise<Car[]> => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return CARS_DATA.filter(car =>
+            car.fuel_type.toLowerCase() === fuelType.toLowerCase()
+        );
     },
+
+    /**
+     * Get a single car by brand and model
+     */
+    getCarByBrandAndModel: async (brand: string, model: string): Promise<Car | null> => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const found = CARS_DATA.find(car => {
+            const brandMatch = car.brand.toLowerCase() === brand.toLowerCase();
+            const modelMatch = car.model.toLowerCase() === model.toLowerCase();
+            return brandMatch && modelMatch;
+        });
+        return found || null;
+    },
+
+    /**
+     * Search cars by query (searches brand, model, body_type)
+     */
+    searchCars: async (query: string): Promise<Car[]> => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const lowerQuery = query.toLowerCase();
+        return CARS_DATA.filter(car =>
+            car.brand.toLowerCase().includes(lowerQuery) ||
+            car.model.toLowerCase().includes(lowerQuery) ||
+            car.body_type.toLowerCase().includes(lowerQuery)
+        );
+    },
+
+    /**
+     * Get unique body types
+     */
+    getBodyTypes: async (): Promise<string[]> => {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const types = new Set(CARS_DATA.map(car => car.body_type));
+        return Array.from(types).sort();
+    },
+
+    /**
+     * Get unique fuel types
+     */
+    getFuelTypes: async (): Promise<string[]> => {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const types = new Set(CARS_DATA.map(car => car.fuel_type));
+        return Array.from(types).sort();
+    },
+
+    /**
+     * Get cars by price range
+     */
+    getCarsByPriceRange: async (minPrice: number, maxPrice: number): Promise<Car[]> => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return CARS_DATA.filter(car => {
+            const carMinPrice = parseFloat(car.min_price.replace(/[^\d.]/g, ''));
+            const carMaxPrice = parseFloat(car.max_price.replace(/[^\d.]/g, ''));
+            return carMinPrice >= minPrice && carMaxPrice <= maxPrice;
+        });
+    }
 };
+
+// Export individual methods for convenience
+export const {
+    getAllCars,
+    getCarsByBodyType,
+    getCarsByFuelType,
+    getCarByBrandAndModel,
+    searchCars,
+    getBodyTypes,
+    getFuelTypes,
+    getCarsByPriceRange
+} = carsApi;

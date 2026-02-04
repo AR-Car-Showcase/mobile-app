@@ -234,9 +234,15 @@ function HybridContent() {
 
 export default function HybridScreen() {
     return (
-        <CarProvider>
-            <Stack.Screen options={{ headerShown: false }} />
-            <HybridContent />
-        </CarProvider>
+        <>
+            <Stack.Screen
+                options={{
+                    headerShown: false
+                }}
+            />
+            <CarProvider>
+                <HybridContent />
+            </CarProvider>
+        </>
     );
 }

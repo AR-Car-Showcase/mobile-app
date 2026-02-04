@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Platform, StyleSheet, Pressable } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
     useAnimatedStyle,
@@ -35,12 +34,11 @@ export default function AnimatedTabBar({ state, descriptors, navigation }: Botto
     });
 
     return (
-        <Animated.View style={[styles.container, animatedStyle, { height: tabBarHeight }]}>
-            <BlurView
-                intensity={80}
-                tint={isDark ? "dark" : "light"}
-                style={StyleSheet.absoluteFill}
-            />
+        <Animated.View style={[
+            styles.container,
+            animatedStyle,
+            { height: tabBarHeight, backgroundColor: isDark ? Colors.dark.surface : Colors.light.surface }
+        ]}>
             <View style={styles.content}>
                 {state.routes.map((route, index) => {
                     const { options } = descriptors[route.key];
@@ -90,7 +88,8 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         elevation: 8,
-        borderTopWidth: 0,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.1)',
     },
     content: {
         flexDirection: 'row',

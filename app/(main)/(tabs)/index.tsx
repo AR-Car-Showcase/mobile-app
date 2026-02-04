@@ -9,13 +9,13 @@ import { ARStyles, Colors, CommonStyles } from '../../../constants';
 import ARCustomMarkerWrapper from '../../scenes/ARCustomMarkerWrapper';
 import ARMarkerScene from '../../scenes/ARMarkerScene';
 import ARSurfaceScene from '../../scenes/ARSurfaceScene';
-import VehicleSelector from '../../../components/VehicleSelector';
-import { Trim } from '../../../api/carApi';
 import { useAuth } from '../../context/AuthContext';
 import LoginRequiredModal from '../../../components/LoginRequiredModal';
 import { useScrollContext } from '../../context/ScrollContext';
 import { useTheme } from '../../context/ThemeContext';
 import CarCard from '../../../components/CarCard';
+import { getAllCars, getCarsByBodyType } from '../../../api/cars';
+import { Car } from '../../../types/car';
 
 type ARMode = 'surface' | 'marker' | 'custom';
 
@@ -29,9 +29,9 @@ export default function HomeScreen() {
   const [showAR, setShowAR] = useState(false);
   const [selectedMode, setSelectedMode] = useState<ARMode>('surface');
   const [customImage, setCustomImage] = useState<string | null>(null);
-  const [selectorVisible, setSelectorVisible] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<Trim | null>(null);
   const sceneRef = useRef<any>(null);
+  const [featuredCars, setFeaturedCars] = useState<Car[]>([]);
+  const [recommendedCars, setRecommendedCars] = useState<Car[]>([]);
 
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
@@ -54,14 +54,14 @@ export default function HomeScreen() {
 
 
   useEffect(() => {
-    if (params.startAR === 'true' && params.vehicle) {
-      const vehicle = JSON.parse(params.vehicle as string);
-      setSelectedVehicle(vehicle);
-      setShowAR(true);
+    loadCars();
+  }, []);
 
-      router.setParams({ startAR: undefined, vehicle: undefined });
-    }
-  }, [params]);
+  const loadCars = async () => {
+    const allCars = await getAllCars();
+    setFeaturedCars(allCars.slice(0, 5));
+    setRecommendedCars(allCars.slice(5, 8));
+  };
 
   const handleModeSelect = (mode: ARMode) => {
     setSelectedMode(mode);
@@ -233,22 +233,17 @@ export default function HomeScreen() {
 
         <View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
-            <CarCard
-              id="1"
-              name="Bugatti Chiron"
-              image="https://images.unsplash.com/photo-1597687843302-f8c5c4c474d2?q=80&w=1000&auto=format&fit=crop"
-              price="$3,000,000"
-              rating={4.9}
-              featured
-            />
-            <CarCard
-              id="2"
-              name="Lamborghini Aventador"
-              image="https://images.unsplash.com/photo-1544636331-e26879cd4d9b?q=80&w=1000&auto=format&fit=crop"
-              price="$500,000"
-              rating={4.8}
-              featured
-            />
+            {featuredCars.map((car, index) => (
+              <CarCard
+                key={`${car.brand}-${car.model}-${index}`}
+                id={`${car.brand}-${car.model}`}
+                name={`${car.brand.charAt(0).toUpperCase() + car.brand.slice(1)} ${car.model.charAt(0).toUpperCase() + car.model.slice(1)}`}
+                image={car.images.exterior[1] || car.images.exterior[0]}
+                price={car.price_range}
+                rating={parseFloat(car.rating) || 4.5}
+                featured
+              />
+            ))}
           </ScrollView>
         </View>
 
@@ -276,16 +271,22 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.verticalList}>
-          {[1, 2, 3].map((i) => (
-            <Pressable key={i} style={[styles.recommendedCard, { backgroundColor: colors.surface }]} onPress={() => router.push('/details')}>
+          {recommendedCars.map((car, index) => (
+            <Pressable
+              key={`${car.brand}-${car.model}-rec-${index}`}
+              style={[styles.recommendedCard, { backgroundColor: colors.surface }]}
+              onPress={() => router.push(`/details?brand=${car.brand}&model=${car.model}`)}
+            >
               <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=1000&auto=format&fit=crop' }}
+                source={{ uri: car.images.exterior[0] }}
                 style={styles.recommendedImage}
               />
               <View style={styles.recommendedContent}>
-                <Text style={[styles.recommendedTitle, { color: colors.text }]}>Porsche 911 GT3</Text>
-                <Text style={{ color: colors.textSecondary }}>Coupe • 2024</Text>
-                <Text style={{ color: colors.accent, fontWeight: 'bold', marginTop: 4 }}>$180,000</Text>
+                <Text style={[styles.recommendedTitle, { color: colors.text }]}>
+                  {car.brand.charAt(0).toUpperCase() + car.brand.slice(1)} {car.model.charAt(0).toUpperCase() + car.model.slice(1)}
+                </Text>
+                <Text style={{ color: colors.textSecondary }}>{car.body_type} • {car.fuel_type}</Text>
+                <Text style={{ color: colors.accent, fontWeight: 'bold', marginTop: 4 }}>{car.price_range}</Text>
               </View>
               <View style={[styles.actionIcon, { backgroundColor: colors.surfaceHighlight }]}>
                 <Ionicons name="arrow-forward" size={20} color={colors.text} />
@@ -299,19 +300,6 @@ export default function HomeScreen() {
           onClose={() => setLoginModalVisible(false)}
           featureName={pendingFeature}
         />
-
-        <VehicleSelector
-          visible={selectorVisible}
-          onClose={() => setSelectorVisible(false)}
-          onSelect={(vehicle) => {
-            setSelectorVisible(false);
-            router.push({
-              pathname: '/details',
-              params: { vehicle: JSON.stringify(vehicle) }
-            });
-          }}
-        />
-
         <View style={{ height: 40 }} />
       </Animated.ScrollView>
     </View>
