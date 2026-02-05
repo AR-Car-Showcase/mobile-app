@@ -1,43 +1,29 @@
 import React from 'react';
-import { View, Platform, StyleSheet, Pressable } from 'react-native';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-    useAnimatedStyle,
-    withTiming,
-    useDerivedValue,
-    interpolate,
-    Extrapolate
-} from 'react-native-reanimated';
-import { useScrollContext } from '../app/context/ScrollContext';
-import { Colors } from '../constants/Colors';
+import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { useTheme } from '../app/context/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import Animated from 'react-native-reanimated';
+import { useScrollContext } from '../app/context/ScrollContext';
+import { useSmartScroll } from '../app/hooks/useSmartScroll';
+
+const { width } = Dimensions.get('window');
 
 export default function AnimatedTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const { scrollY, tabBarHeight } = useScrollContext();
-    const { theme } = useTheme();
-    const isDark = theme === 'dark';
+    const { colors } = useTheme();
 
-    const translateY = useDerivedValue(() => {
-        return interpolate(
-            scrollY.value,
-            [0, 50],
-            [0, tabBarHeight],
-            Extrapolate.CLAMP
-        );
-    });
-
-    const animatedStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ translateY: withTiming(translateY.value > 20 ? tabBarHeight : 0, { duration: 250 }) }],
-        };
-    });
+    
+    const animatedStyle = useSmartScroll(scrollY, tabBarHeight, 'down');
 
     return (
         <Animated.View style={[
             styles.container,
-            animatedStyle,
-            { height: tabBarHeight, backgroundColor: isDark ? Colors.dark.surface : Colors.light.surface }
+            {
+                backgroundColor: colors.surface,
+                borderTopColor: colors.border,
+            },
+            animatedStyle
         ]}>
             <View style={styles.content}>
                 {state.routes.map((route, index) => {
@@ -57,22 +43,33 @@ export default function AnimatedTabBar({ state, descriptors, navigation }: Botto
                         }
                     };
 
-                    const iconName =
-                        label === 'Home' ? 'home' :
-                            label === 'Explore' ? 'search' :
-                                label === 'Saved' ? 'heart' : 'person';
+                    const getIconName = (name: string, focused: boolean): any => {
+                        switch (name) {
+                            case 'index': return focused ? 'home' : 'home-outline';
+                            case 'explore': return focused ? 'search' : 'search-outline';
+                            case 'saved': return focused ? 'heart' : 'heart-outline';
+                            case 'profile': return focused ? 'person' : 'person-outline';
+                            default: return 'square';
+                        }
+                    };
 
                     return (
                         <Pressable
-                            key={index}
+                            key={route.key}
                             onPress={onPress}
-                            style={styles.tabButton}
+                            style={styles.tabItem}
                         >
                             <Ionicons
-                                name={isFocused ? iconName : `${iconName}-outline` as any}
+                                name={getIconName(route.name, isFocused)}
                                 size={24}
-                                color={isFocused ? (isDark ? Colors.dark.accent : Colors.light.accent) : (isDark ? Colors.dark.textSecondary : Colors.light.textSecondary)}
+                                color={isFocused ? colors.accent : colors.textSecondary}
                             />
+                            <Text style={[
+                                styles.label,
+                                { color: isFocused ? colors.accent : colors.textSecondary }
+                            ]}>
+                                {label}
+                            </Text>
                         </Pressable>
                     );
                 })}
@@ -87,21 +84,28 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        elevation: 8,
+        height: 70,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.1)',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     content: {
         flexDirection: 'row',
         height: '100%',
         alignItems: 'center',
         justifyContent: 'space-around',
-        paddingBottom: Platform.OS === 'ios' ? 20 : 0,
     },
-    tabButton: {
+    tabItem: {
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 10,
         flex: 1,
+    },
+    label: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        marginTop: 4,
     },
 });

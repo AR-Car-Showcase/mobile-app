@@ -48,54 +48,61 @@ function CustomDrawerContent(props: any) {
     );
 }
 
+import { ScrollProvider } from '../context/ScrollContext';
+
 export default function MainLayout() {
     return (
-        <Drawer
-            drawerContent={(props) => <CustomDrawerContent {...props} />}
-            screenOptions={{
-                headerShown: true,
-                headerStyle: {
-                    backgroundColor: Colors.background,
-                    elevation: 0,
-                    shadowOpacity: 0,
-                },
-                headerTitleStyle: {
-                    color: Colors.text,
-                    fontWeight: 'bold',
-                },
-                headerTintColor: Colors.text,
-                drawerActiveBackgroundColor: Colors.glassBackground,
-                drawerActiveTintColor: Colors.accent,
-                drawerInactiveTintColor: Colors.textSecondary,
-                drawerStyle: {
-                    backgroundColor: Colors.background,
-                    width: 280,
-                },
-            }}
-        >
-            <Drawer.Screen
-                name="(tabs)"
-                options={{
-                    title: 'Home',
-                    drawerLabel: 'Home',
-                    drawerIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+        <ScrollProvider>
+            <Drawer
+                drawerContent={(props) => <CustomDrawerContent {...props} />}
+                screenOptions={{
+                    headerShown: true,
+                    headerStyle: {
+                        backgroundColor: Colors.background,
+                        elevation: 0,
+                        shadowOpacity: 0,
+                    },
+                    headerTitleStyle: {
+                        color: Colors.text,
+                        fontWeight: 'bold',
+                    },
+                    headerTintColor: Colors.text,
+                    drawerActiveBackgroundColor: Colors.glassBackground,
+                    drawerActiveTintColor: Colors.accent,
+                    drawerInactiveTintColor: Colors.textSecondary,
+                    drawerStyle: {
+                        backgroundColor: Colors.background,
+                        width: 280,
+                    },
                 }}
-            />
-            <Drawer.Screen
-                name="details"
-                options={{
-                    title: 'Car Details',
-                    drawerItemStyle: { display: 'none' }, // Hide from sidebar
-                }}
-            />
-            <Drawer.Screen
-                name="hybrid"
-                options={{
-                    title: '3D Studio',
-                    drawerItemStyle: { display: 'none' }, // Hide from sidebar
-                }}
-            />
-        </Drawer>
+            >
+                <Drawer.Screen
+                    name="(tabs)"
+                    options={{
+                        title: 'Home',
+                        drawerLabel: 'Home',
+                        drawerIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+                        headerShown: false,
+                    }}
+                />
+                <Drawer.Screen
+                    name="details"
+                    options={{
+                        title: 'Car Details',
+                        headerShown: false,
+                        drawerItemStyle: { display: 'none' },
+                    }}
+                />
+                <Drawer.Screen
+                    name="hybrid"
+                    options={{
+                        title: '3D Studio',
+                        headerShown: false,
+                        drawerItemStyle: { display: 'none' },
+                    }}
+                />
+            </Drawer>
+        </ScrollProvider>
     );
 }
 

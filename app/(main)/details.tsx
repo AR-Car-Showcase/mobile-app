@@ -1,21 +1,93 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, Image, Dimensions } from 'react-native';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import React, { useEffect, useState, memo } from 'react';
+import { Pressable, StyleSheet, Text, View, Image, Dimensions } from 'react-native';
+import Animated, {
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    interpolate,
+    Extrapolate,
+} from 'react-native-reanimated';
 import { CommonStyles } from '../../constants';
 import { useTheme } from '../context/ThemeContext';
 import { getCarByBrandAndModel } from '../../api/cars';
 import { Car } from '../../types/car';
+import { useScrollContext } from '../context/ScrollContext';
+import { useSmartScroll } from '../hooks/useSmartScroll';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const TOP_TIER_HEIGHT = 88;
+const BOTTOM_TIER_HEIGHT = 88;
+const TOTAL_HEADER_HEIGHT = TOP_TIER_HEIGHT + BOTTOM_TIER_HEIGHT;
+
+const MemoizedThumbnail = memo(({ item, isSelected, onPress, colors }: { item: string, isSelected: boolean, onPress: () => void, colors: any }) => (
+    <Pressable
+        onPress={onPress}
+        style={[styles.thumbnailWrapper, isSelected && { borderColor: colors.accent, borderWidth: 2 }]}
+    >
+        <Image source={{ uri: item }} style={styles.thumbnail} />
+    </Pressable>
+));
+
+const SPEC_CATEGORIES: Record<string, string[]> = {
+    "Engine & Transmission": ["Engine Type", "Displacement", "Engine Displacement", "Max Power", "Max Torque", "No. of Cylinders", "Valves Per Cylinder", "Turbo Charger", "Transmission Type", "Gearbox", "Drive Type"],
+    "Fuel & Performance": ["Fuel Type", "Fuel Tank Capacity", "Petrol Fuel Tank Capacity", "Diesel Fuel Tank Capacity", "Mileage", "City Mileage", "Petrol Highway Mileage", "Diesel Highway Mileage", "Top Speed", "Acceleration", "0-100kmph", "Emission Norm Compliance"],
+    "Suspension, Steering & Brakes": ["Suspension", "Steering Type", "Steering Column", "Steering Gear Type", "Turning Radius", "Brakes Front", "Brakes Rear", "Shock Absorbers"],
+    "Dimensions & Capacity": ["Length", "Width", "Height", "Boot Space", "Seating Capacity", "Wheel Base", "Front Tread", "Rear Tread", "Kerb Weight", "Gross Weight", "No. of Doors", "Ground Clearance"],
+    "Comfort & Convenience": ["Power Steering", "Power Windows", "Power Windows Front", "Power Windows Rear", "Air Conditioner", "Heater", "Adjustable Steering", "Automatic Climate Control", "Air Quality Control", "Accessory Power Outlet", "Trunk Light", "Vanity Mirror", "Rear Reading Lamp", "Rear Seat Headrest", "Adjustable Headrest", "Rear Seat Centre Arm Rest", "Cup Holders", "Cruise Control", "Parking Sensors", "Real-Time Vehicle Tracking", "KeyLess Entry", "Engine Start/Stop Button", "Cooled Glovebox", "Voice Commands", "USB Charger", "Central Console Armrest", "Tailgate Ajar Warning", "Hands-Free Tailgate", "Luggage Hook & Net", "Automatic Headlamps", "Follow Me Home Headlamps"],
+    "Interior": ["Tachometer", "Leather Wrapped Steering Wheel", "Glove Box", "Digital Cluster", "Upholstery", "Leather Seats", "Electronic Multi-Tripmeter", "Digital Clock", "Outside Temperature Display", "Digital Odometer", "Sun Roof", "Moon Roof", "Dual Tone Dashboard", "Lighting"],
+    "Exterior": ["Adjustable Headlamps", "Fog Lights", "Rain Sensing Wiper", "Rear Window Wiper", "Rear Window Washer", "Rear Window Defogger", "Alloy Wheels", "Wheel Covers", "Outside Rear View Mirror Turn Indicators", "Projector Headlamps", "Boot Opening", "Heated Outside Rear View Mirror", "Outside Rear View Mirror (ORVM)", "Tyre Size", "Tyre Type", "LED DRLs", "LED Headlamps", "LED Taillights", "Integrated Antenna", "Chrome Grille", "Chrome Garnish", "Roof Rail"],
+    "Safety": ["Anti-lock Braking System (ABS)", "Brake Assist", "Central Locking", "Child Safety Locks", "Anti-Theft Alarm", "No. of Airbags", "Driver Airbag", "Passenger Airbag", "Side Airbag", "Side Airbag-Rear", "Day & Night Rear View Mirror", "Curtain Airbag", "Electronic Brakeforce Distribution (EBD)", "Seat Belt Warning", "Door Ajar Warning", "Traction Control", "Tyre Pressure Monitoring System (TPMS)", "Engine Immobilizer", "Electronic Stability Control (ESC)", "Rear Camera", "Anti-Theft Device", "Anti-Pinch Power Windows", "Speed Alert", "Speed Sensing Auto Door Lock", "ISOFIX Child Seat Mounts", "Pretensioners & Force Limiter Seatbelts", "Hill Descent Control", "Hill Assist", "Impact Sensing Auto Door Unlock", "360 View Camera"],
+    "Entertainment & Communication": ["Radio", "Wireless Phone Charging", "Bluetooth Connectivity", "Touchscreen", "Touchscreen Size", "Android Auto", "Apple CarPlay", "Usb Ports", "Speakers", "Audio System Remote Control", "Integrated 2DIN Audio"],
+    "ADAS Feature": ["Lane Departure Warning", "Emergency Braking", "Adaptive Cruise Control", "Blind Spot Monitor", "Lane Keep Assist"],
+    "Advance Internet Feature": ["Remote Engine Start", "Remote Horn & Light", "Geo Fence"]
+};
+
+const KEY_SPECS = ["Max Power", "Max Torque", "City Mileage", "Fuel Type", "Engine Displacement", "Transmission Type", "Seating Capacity", "Boot Space"];
 
 export default function VehicleDetailsScreen() {
     const params = useLocalSearchParams();
+    const navigation = useNavigation<any>();
     const { colors } = useTheme();
+    const { scrollY } = useScrollContext();
     const [car, setCar] = useState<Car | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [selectedImageType, setSelectedImageType] = useState<'exterior' | 'interior'>('exterior');
+
+    const scrollHandler = useAnimatedScrollHandler((event) => {
+        scrollY.value = event.contentOffset.y;
+    });
+
+    const tier1Style = useAnimatedStyle(() => {
+        const translateY = interpolate(scrollY.value, [0, TOP_TIER_HEIGHT], [0, -TOP_TIER_HEIGHT], Extrapolate.CLAMP);
+        const opacity = interpolate(scrollY.value, [0, TOP_TIER_HEIGHT / 2], [1, 0], Extrapolate.CLAMP);
+        return {
+            transform: [{ translateY }],
+            opacity,
+        };
+    });
+
+    const tier2Style = useAnimatedStyle(() => {
+        const translateY = interpolate(scrollY.value, [0, TOP_TIER_HEIGHT], [0, -TOP_TIER_HEIGHT], Extrapolate.CLAMP);
+        return {
+            transform: [{ translateY }],
+        };
+    });
+
+    const centeredTitleStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(scrollY.value, [TOP_TIER_HEIGHT, TOP_TIER_HEIGHT + 30], [1, 0], Extrapolate.CLAMP);
+        return { opacity };
+    });
+
+    const stickyNameStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(scrollY.value, [TOP_TIER_HEIGHT + 20, TOP_TIER_HEIGHT + 50], [0, 1], Extrapolate.CLAMP);
+        const translateX = interpolate(scrollY.value, [TOP_TIER_HEIGHT + 20, TOP_TIER_HEIGHT + 50], [20, 0], Extrapolate.CLAMP);
+        return {
+            opacity,
+            transform: [{ translateX }],
+        };
+    });
 
     useEffect(() => {
         loadCarData();
@@ -34,6 +106,19 @@ export default function VehicleDetailsScreen() {
         setLoading(false);
     };
 
+    // Merge all specs into one object for easier access
+    const mergedSpecs = React.useMemo(() => {
+        let merged: Record<string, any> = {};
+        if (car && car.specs) {
+            Object.values(car.specs).forEach((group: any) => {
+                if (typeof group === 'object') {
+                    merged = { ...merged, ...group };
+                }
+            });
+        }
+        return merged;
+    }, [car?.specs]);
+
     if (loading || !car) {
         return (
             <View style={[CommonStyles.container, styles.center, { backgroundColor: colors.background }]}>
@@ -47,43 +132,119 @@ export default function VehicleDetailsScreen() {
     const currentImages = selectedImageType === 'exterior' ? car.images.exterior : car.images.interior;
     const displayName = `${car.brand.charAt(0).toUpperCase() + car.brand.slice(1)} ${car.model.charAt(0).toUpperCase() + car.model.slice(1)}`;
 
-    const renderSpec = (label: string, value: any, icon?: string) => {
-        if (value === null || value === undefined || value === '') return null;
+    const renderSpecValue = (value: any) => {
+        if (typeof value === 'boolean') {
+            return value ? (
+                <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
+            ) : (
+                <Ionicons name="close-circle-outline" size={18} color={colors.textTertiary} />
+            );
+        }
+        return <Text style={[styles.specValueDetail, { color: colors.text }]}>{String(value)}</Text>;
+    };
+
+    const renderQuickSpecs = () => {
+        const quickSpecsData = [
+            { label: 'Engine', value: mergedSpecs['Engine Displacement'] || mergedSpecs['Displacement'], icon: 'engine', library: 'MCI' },
+            { label: 'Fuel', value: mergedSpecs['Fuel Type'] || car.fuel_type, icon: 'gas-station', library: 'MCI' },
+            { label: 'Seats', value: mergedSpecs['Seating Capacity'], icon: 'car-seat', library: 'MCI' },
+            { label: 'Transmission', value: mergedSpecs['Transmission Type'] || mergedSpecs['Gearbox'], icon: 'cog-outline', library: 'MCI' },
+        ].filter(item => item.value);
+
         return (
-            <View style={[styles.specItem, { backgroundColor: colors.surface }]} key={label}>
-                {icon && <MaterialCommunityIcons name={icon as any} size={20} color={colors.accent} />}
-                <View style={{ flex: 1 }}>
-                    <Text style={[styles.specLabel, { color: colors.textSecondary }]}>{label}</Text>
-                    <Text style={[styles.specValue, { color: colors.text }]}>
-                        {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value}
-                    </Text>
+            <View style={[styles.quickSpecsBar, { backgroundColor: colors.surface }]}>
+                {quickSpecsData.map((item, index) => (
+                    <View key={index} style={styles.quickSpecItem}>
+                        {item.library === 'MCI' ? (
+                            <MaterialCommunityIcons name={item.icon as any} size={20} color={colors.accent} />
+                        ) : (
+                            <Ionicons name={item.icon as any} size={20} color={colors.accent} />
+                        )}
+                        <Text style={[styles.quickSpecValue, { color: colors.text }]} numberOfLines={1}>{item.value}</Text>
+                        <Text style={[styles.quickSpecLabel, { color: colors.textSecondary }]}>{item.label}</Text>
+                    </View>
+                ))}
+            </View>
+        );
+    };
+
+    const renderKeySpecs = () => {
+        const specsToShow = KEY_SPECS.map(key => ({ key, value: mergedSpecs[key] })).filter(item => item.value);
+
+        return (
+            <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Key Specifications</Text>
+                <View style={styles.quickSpecsGrid}>
+                    {specsToShow.map((item, index) => (
+                        <View key={index} style={[styles.specRowDetail, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.specKey, { color: colors.textSecondary }]}>{item.key}</Text>
+                            <View style={styles.specValueContainer}>{renderSpecValue(item.value)}</View>
+                        </View>
+                    ))}
                 </View>
             </View>
         );
     };
 
-    // Extract key specifications from the first spec object
-    const keySpecs = car.specs[Object.keys(car.specs)[0]] || {};
+    const renderCategorizedSpecs = () => {
+        return Object.entries(SPEC_CATEGORIES).map(([category, keys]) => {
+            const categorySpecs = keys.map(key => ({ key, value: mergedSpecs[key] })).filter(item => item.value !== undefined && item.value !== null);
+
+            if (categorySpecs.length === 0) return null;
+
+            return (
+                <CollapsibleSection key={category} title={category}>
+                    {categorySpecs.map((item, index) => (
+                        <View key={index} style={[styles.specRowDetail, { borderBottomColor: 'rgba(255,255,255,0.05)' }]}>
+                            <Text style={[styles.specKey, { color: colors.textSecondary }]}>{item.key}</Text>
+                            <View style={styles.specValueContainer}>
+                                {renderSpecValue(item.value)}
+                            </View>
+                        </View>
+                    ))}
+                </CollapsibleSection>
+            );
+        });
+    };
 
     return (
         <View style={[CommonStyles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { backgroundColor: colors.surface }]}>
+            <Animated.View style={[styles.tier1Header, { backgroundColor: colors.background }, tier1Style]}>
+                <Pressable onPress={() => navigation.openDrawer()} style={styles.menuButton}>
+                    <Ionicons name="menu" size={24} color={colors.text} />
+                </Pressable>
+                <Text style={[styles.tier1Title, { color: colors.text }]}>Car Details</Text>
+            </Animated.View>
+
+            <Animated.View style={[styles.tier2Header, { backgroundColor: colors.surface }, tier2Style]}>
                 <Pressable onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </Pressable>
-                <View style={styles.headerTitleContainer}>
-                    <Text style={[styles.headerTitle, { color: colors.text }]}>{displayName}</Text>
-                    <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-                        {car.body_type} • {car.fuel_type}
-                    </Text>
+
+                <View style={styles.tier2TitleContainer}>
+                    <Animated.View style={[styles.centeredTitleWrapper, centeredTitleStyle]}>
+                        <Text style={[styles.headerTitle, { color: colors.text }]}>{displayName}</Text>
+                    </Animated.View>
+
+                    <Animated.View style={[styles.stickyNameWrapper, stickyNameStyle]}>
+                        <Text style={[styles.stickyCarName, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
+                    </Animated.View>
                 </View>
+
                 <Pressable style={styles.backButton}>
                     <Ionicons name="heart-outline" size={24} color={colors.accent} />
                 </Pressable>
-            </View>
+            </Animated.View>
 
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <Animated.ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={{ paddingTop: TOTAL_HEADER_HEIGHT + 20, paddingBottom: 100 }}
+                showsVerticalScrollIndicator={false}
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
+            >
                 <Image
+                    key={currentImages[selectedImageIndex]}
                     source={{ uri: currentImages[selectedImageIndex] || 'https://images.unsplash.com/photo-1617788138017-80ad40651399?q=80&w=1000&auto=format&fit=crop' }}
                     style={styles.heroImage}
                     resizeMode="cover"
@@ -108,149 +269,206 @@ export default function VehicleDetailsScreen() {
                     </Pressable>
                 </View>
 
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageGallery}>
-                    {currentImages.map((imgUrl, index) => (
-                        <Pressable key={index} onPress={() => setSelectedImageIndex(index)}>
-                            <Image
-                                source={{ uri: imgUrl }}
-                                style={[
-                                    styles.thumbnailImage,
-                                    { borderColor: selectedImageIndex === index ? colors.accent : colors.border }
-                                ]}
+                <View style={styles.thumbnailsContainer}>
+                    <Animated.FlatList
+                        horizontal
+                        data={currentImages}
+                        keyExtractor={(item) => item}
+                        removeClippedSubviews={false}
+                        initialNumToRender={20}
+                        maxToRenderPerBatch={20}
+                        renderItem={({ item, index }) => (
+                            <MemoizedThumbnail
+                                item={item}
+                                isSelected={selectedImageIndex === index}
+                                onPress={() => setSelectedImageIndex(index)}
+                                colors={colors}
                             />
-                        </Pressable>
-                    ))}
-                </ScrollView>
+                        )}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+                    />
+                </View>
 
                 <View style={[styles.priceCard, { backgroundColor: colors.surface }]}>
                     <View>
-                        <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>Price Range</Text>
-                        <Text style={[styles.priceValue, { color: colors.accent }]}>{car.price_range}</Text>
-                        <Text style={[styles.priceDetail, { color: colors.textTertiary }]}>
-                            {car.min_price} - {car.max_price}
-                        </Text>
+                        <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>Estimated Price</Text>
+                        <Text style={[styles.priceValue, { color: colors.text }]}>{car.price_range}</Text>
+                        <Text style={[styles.priceDetail, { color: colors.textSecondary }]}>Ex-showroom</Text>
                     </View>
                     <View style={styles.ratingContainer}>
-                        <Ionicons name="star" size={20} color="#FFD700" />
-                        <Text style={[styles.ratingText, { color: colors.text }]}>{car.rating}</Text>
+                        <Ionicons name="star" size={20} color={colors.accent} />
+                        <Text style={[styles.ratingText, { color: colors.text }]}>{Number(car.rating) || 4.5}</Text>
                     </View>
                 </View>
 
-                <View style={[styles.section, { backgroundColor: colors.surface }]}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Specs</Text>
-                    <View style={styles.quickSpecsGrid}>
-                        {renderSpec('Body Type', car.body_type, 'car-side')}
-                        {renderSpec('Fuel Type', car.fuel_type, 'fuel')}
-                        {renderSpec('Transmission', car.transmission_type, 'car-shift-pattern')}
-                        {renderSpec('Seating', car.seating_capacity, 'seat')}
-                    </View>
+                <View style={styles.actionButtonsContainer}>
+                    <Pressable
+                        style={[styles.actionButton, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.accent }]}
+                        onPress={() => router.push({ pathname: '/hybrid', params: { brand: car.brand, model: car.model, initialMode: 'AR' } })}
+                    >
+                        <MaterialCommunityIcons name="cube-scan" size={24} color={colors.accent} />
+                        <Text style={[styles.actionButtonText, { color: colors.accent }]}>View in AR</Text>
+                    </Pressable>
+                    <Pressable
+                        style={[styles.actionButton, { backgroundColor: colors.accent }]}
+                        onPress={() => router.push({ pathname: '/hybrid', params: { brand: car.brand, model: car.model, initialMode: '3D' } })}
+                    >
+                        <Ionicons name="color-palette-outline" size={24} color="#FFF" />
+                        <Text style={[styles.actionButtonText, { color: '#FFF' }]}>Customize</Text>
+                    </Pressable>
                 </View>
 
-                {car.variants && car.variants.length > 0 && (
-                    <View style={[styles.section, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                            Variants ({car.variants.length})
-                        </Text>
-                        {car.variants.map((variant, index) => (
-                            <View key={index} style={[styles.variantCard, { borderColor: colors.border }]}>
-                                <View style={styles.variantHeader}>
-                                    <Text style={[styles.variantName, { color: colors.text }]}>
-                                        {variant.variant}
-                                    </Text>
-                                    <Text style={[styles.variantPrice, { color: colors.accent }]}>
-                                        {variant.price}
-                                    </Text>
-                                </View>
-                                <View style={styles.variantDetails}>
-                                    <Text style={[styles.variantSpec, { color: colors.textSecondary }]}>
-                                        {variant.engine_cc} • {variant.fuel} • {variant.transmission}
-                                    </Text>
-                                </View>
-                                {variant.key_specifications && variant.key_specifications.length > 0 && (
-                                    <View style={styles.variantFeatures}>
-                                        {variant.key_specifications.map((spec, idx) => (
-                                            <View key={idx} style={[styles.featureBadge, { backgroundColor: colors.background }]}>
-                                                <Text style={[styles.featureText, { color: colors.textSecondary }]}>
-                                                    {spec}
-                                                </Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
-                            </View>
-                        ))}
+                {renderQuickSpecs()}
+
+                {renderKeySpecs()}
+
+                <View style={[styles.section, { backgroundColor: colors.surface, padding: 0, overflow: 'hidden' }]}>
+                    <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                        <Text style={[styles.sectionTitle, { color: colors.text, marginBottom: 0 }]}>Full Specifications</Text>
                     </View>
-                )}
-
-                {car.images.colours && car.images.colours.length > 0 && (
-                    <View style={[styles.section, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                            Available Colors ({car.images.colours.length})
-                        </Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorsContainer}>
-                            {car.images.colours.map((colour, index) => (
-                                <Pressable key={index} style={styles.colorCard}>
-                                    <Image source={{ uri: colour.image }} style={styles.colorImage} resizeMode="cover" />
-                                    <Text style={[styles.colorName, { color: colors.text }]} numberOfLines={2}>
-                                        {colour.name}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </ScrollView>
-                    </View>
-                )}
-
-                {keySpecs && Object.keys(keySpecs).length > 0 && (
-                    <View style={[styles.section, { backgroundColor: colors.surface }]}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Full Specifications</Text>
-                        <View style={styles.specsGrid}>
-                            {Object.entries(keySpecs).map(([key, value]) => renderSpec(key, value))}
-                        </View>
-                    </View>
-                )}
-
-                <Pressable
-                    style={[styles.ctaButton, { backgroundColor: colors.accent }]}
-                    onPress={() => router.push('/hybrid')}
-                >
-                    <MaterialCommunityIcons name="rotate-3d-variant" size={24} color="#FFF" />
-                    <Text style={styles.ctaButtonText}>View in 3D & AR</Text>
-                </Pressable>
-
-                <View style={{ height: 40 }} />
-            </ScrollView>
-        </View>
+                    {renderCategorizedSpecs()}
+                </View>
+            </Animated.ScrollView>
+        </View >
     );
 }
 
+const CollapsibleSection = ({ title, children }: { title: string, children: React.ReactNode }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const { colors } = useTheme();
+    return (
+        <View style={[styles.accordionSection, { borderBottomColor: colors.border }]}>
+            <Pressable
+                onPress={() => setIsExpanded(!isExpanded)}
+                style={styles.accordionHeader}
+            >
+                <Text style={[styles.accordionTitle, { color: colors.text }]}>{title}</Text>
+                <Ionicons
+                    name={isExpanded ? "chevron-up" : "chevron-down"}
+                    size={20}
+                    color={colors.textSecondary}
+                />
+            </Pressable>
+            {isExpanded && (
+                <View style={styles.accordionContent}>
+                    {children}
+                </View>
+            )}
+        </View>
+    );
+};
+
 const styles = StyleSheet.create({
     center: {
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
     errorText: {
         fontSize: 16,
     },
-    header: {
-        padding: 16,
-        paddingTop: 16,
+    tier1Header: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: TOP_TIER_HEIGHT + 20,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
-        elevation: 2,
+        paddingHorizontal: 16,
+        paddingTop: 44,
+        zIndex: 110,
+    },
+    tier1Title: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginLeft: 16,
+    },
+    tier2Header: {
+        position: 'absolute',
+        top: TOP_TIER_HEIGHT,
+        left: 0,
+        right: 0,
+        height: BOTTOM_TIER_HEIGHT,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingTop: 20,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        zIndex: 100,
+    },
+    menuButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     backButton: {
-        padding: 8,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    headerTitleContainer: {
+    tier2TitleContainer: {
         flex: 1,
+        justifyContent: 'center',
+        height: '100%',
+        marginHorizontal: 8,
+    },
+    centeredTitleWrapper: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+    },
+    stickyNameWrapper: {
+        position: 'absolute',
+        left: 0,
     },
     headerTitle: {
-        fontSize: 20,
+        fontSize: 30,
+        fontWeight: 'bold',
+    },
+    stickyCarName: {
+        fontSize: 16,
         fontWeight: 'bold',
     },
     headerSubtitle: {
+        fontSize: 12,
+    },
+    quickSpecsBar: {
+        flexDirection: 'row',
+        marginHorizontal: 16,
+        marginTop: 16,
+        marginBottom: 8,
+        padding: 16,
+        borderRadius: 12,
+        justifyContent: 'space-between',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    quickSpecItem: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    quickSpecValue: {
         fontSize: 14,
+        fontWeight: 'bold',
+        marginTop: 4,
+    },
+    quickSpecLabel: {
+        fontSize: 11,
         marginTop: 2,
     },
     scrollView: {
@@ -258,33 +476,35 @@ const styles = StyleSheet.create({
     },
     heroImage: {
         width: '100%',
-        height: 280,
+        height: 250,
     },
     imageTypeSelector: {
         flexDirection: 'row',
-        padding: 16,
-        gap: 12,
+        justifyContent: 'center',
+        marginVertical: 16,
+        gap: 16,
     },
     imageTypeBtn: {
-        flex: 1,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.05)',
     },
     imageTypeBtnText: {
         fontSize: 14,
         fontWeight: '600',
     },
-    imageGallery: {
-        paddingHorizontal: 16,
-        gap: 12,
+    thumbnailsContainer: {
+        marginBottom: 16,
     },
-    thumbnailImage: {
-        width: 100,
-        height: 70,
+    thumbnailWrapper: {
         borderRadius: 8,
-        borderWidth: 2,
+        overflow: 'hidden',
+    },
+    thumbnail: {
+        width: 80,
+        height: 60,
+        resizeMode: 'cover',
     },
     priceCard: {
         margin: 16,
@@ -315,11 +535,30 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
     },
+    actionButtonsContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        gap: 12,
+        marginBottom: 20,
+    },
+    actionButton: {
+        flex: 1,
+        flexDirection: 'row',
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+    },
+    actionButtonText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
     section: {
         marginHorizontal: 16,
         marginBottom: 16,
-        padding: 16,
         borderRadius: 12,
+        padding: 16,
     },
     sectionTitle: {
         fontSize: 18,
@@ -327,96 +566,41 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     quickSpecsGrid: {
-        gap: 12,
+        gap: 8,
     },
-    specItem: {
+    specRowDetail: {
         flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 8,
-        gap: 12,
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+        borderBottomWidth: 0.5,
     },
-    specLabel: {
-        fontSize: 12,
+    specKey: {
+        fontSize: 14,
+        flex: 1,
     },
-    specValue: {
-        fontSize: 16,
+    specValueDetail: {
+        fontSize: 14,
         fontWeight: '600',
-        marginTop: 2,
     },
-    variantCard: {
-        padding: 12,
-        borderRadius: 8,
-        borderWidth: 1,
-        marginBottom: 12,
+    specValueContainer: {
+        flex: 1,
+        alignItems: 'flex-end',
     },
-    variantHeader: {
+    accordionSection: {
+        borderBottomWidth: 1,
+    },
+    accordionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-    },
-    variantName: {
-        fontSize: 16,
-        fontWeight: '600',
-        flex: 1,
-    },
-    variantPrice: {
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    variantDetails: {
-        marginTop: 4,
-    },
-    variantSpec: {
-        fontSize: 13,
-    },
-    variantFeatures: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 6,
-        marginTop: 8,
-    },
-    featureBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-    },
-    featureText: {
-        fontSize: 11,
-    },
-    colorsContainer: {
-        gap: 12,
-    },
-    colorCard: {
-        alignItems: 'center',
-        width: 120,
-    },
-    colorImage: {
-        width: 120,
-        height: 80,
-        borderRadius: 8,
-    },
-    colorName: {
-        fontSize: 12,
-        marginTop: 6,
-        textAlign: 'center',
-    },
-    specsGrid: {
-        gap: 8,
-    },
-    ctaButton: {
-        marginHorizontal: 16,
-        marginTop: 8,
         padding: 16,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
     },
-    ctaButtonText: {
-        color: '#FFF',
-        fontSize: 16,
-        fontWeight: 'bold',
+    accordionTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    accordionContent: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
 });

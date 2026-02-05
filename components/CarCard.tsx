@@ -15,7 +15,7 @@ interface CarCardProps {
     onPress?: () => void;
 }
 
-export default function CarCard({ id, name, image, price, rating, featured, onPress }: CarCardProps) {
+const CarCard = React.memo(({ id, name, image, price, rating, featured, onPress }: CarCardProps) => {
     const { colors } = useTheme();
 
     const handlePress = () => {
@@ -50,7 +50,9 @@ export default function CarCard({ id, name, image, price, rating, featured, onPr
             </View>
         </Pressable>
     );
-}
+});
+
+export default CarCard;
 
 const styles = StyleSheet.create({
     container: {
