@@ -1,7 +1,7 @@
 import { Car, BodyType } from '../types/car';
-import formattedCarsData from '../assets/formatted_cars_data.json';
+import carsData from '../assets/cars_data.json';
 
-const CARS_DATA: Car[] = formattedCarsData as Car[];
+const CARS_DATA: Car[] = carsData as unknown as Car[];
 
 /**
  * Mock API for car data - designed for easy backend swap
@@ -86,9 +86,7 @@ export const carsApi = {
     getCarsByPriceRange: async (minPrice: number, maxPrice: number): Promise<Car[]> => {
         await new Promise(resolve => setTimeout(resolve, 100));
         return CARS_DATA.filter(car => {
-            const carMinPrice = parseFloat(car.min_price.replace(/[^\d.]/g, ''));
-            const carMaxPrice = parseFloat(car.max_price.replace(/[^\d.]/g, ''));
-            return carMinPrice >= minPrice && carMaxPrice <= maxPrice;
+            return car.min_price_lakhs >= minPrice && car.max_price_lakhs <= maxPrice;
         });
     }
 };

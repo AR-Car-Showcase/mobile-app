@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { CommonStyles, ARStyles, Colors } from '../../constants';
 import { HybridStyles as styles } from '../../constants/HybridStyles';
 import { CarProvider, useCarContext } from '../context/CarContext';
+import { getCarByBrandAndModel } from '../../api/cars';
 import CustomizerScreen from '../../components/CustomizerScreen';
 import CustomizationDrawer from '../../components/CustomizationDrawer';
 import { generateCustomModel, getModelUrl } from '../services/blenderService';
@@ -13,6 +14,7 @@ import ARHybridScene from '../scenes/ARHybridScene';
 
 function HybridContent() {
     const router = useRouter();
+    const params = useLocalSearchParams();
     const [viewMode, setViewMode] = useState<'3D' | 'AR'>('3D');
     const { config, updateMaterialColor, setShowCustomized } = useCarContext();
     const [activeMaterial, setActiveMaterial] = useState('CAR_BODY_PRIMARY');
@@ -21,6 +23,7 @@ function HybridContent() {
     const [viewType, setViewType] = useState<'exterior' | 'interior'>('exterior');
     const [isPickerVisible, setIsPickerVisible] = useState(false);
     const [autoRotate, setAutoRotate] = useState(false);
+    const [car, setCar] = useState<any>(null);
 
     const [rotationY, setRotationY] = useState(0);
     const [rotationX, setRotationX] = useState(0);
@@ -30,6 +33,19 @@ function HybridContent() {
     const [isGenerating, setIsGenerating] = useState(false);
 
     const sceneRef = useRef<any>(null);
+
+    React.useEffect(() => {
+        const loadInitialData = async () => {
+            if (params.brand && params.model) {
+                const carData = await getCarByBrandAndModel(params.brand as string, params.model as string);
+                setCar(carData);
+            }
+            if (params.initialMode) {
+                setViewMode(params.initialMode as '3D' | 'AR');
+            }
+        };
+        loadInitialData();
+    }, [params]);
 
     const handleRotateLeft = () => sceneRef.current?.rotateLeft?.();
     const handleRotateRight = () => sceneRef.current?.rotateRight?.();
@@ -58,7 +74,6 @@ function HybridContent() {
             setGeneratedModelUrl(modelUrl);
             setViewMode('AR');
         } catch (error) {
-            console.error('[ERROR] Generation failed:', error);
             Alert.alert('Error', 'Generation service unavailable.');
         } finally {
             setIsGenerating(false);
@@ -66,74 +81,76 @@ function HybridContent() {
     };
 
     const Theme = Colors.dark;
+    const dynamicIconColor = backgroundTheme === 'dark' ? '#FFFFFF' : '#1A1A1A';
+    const dynamicButtonBg = backgroundTheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
 
     return (
         <View style={CommonStyles.container}>
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
-                        <Ionicons name="arrow-back" size={24} color="white" />
-                    </TouchableOpacity>
-                    {viewMode === '3D' && (
-                        <>
-                            <TouchableOpacity
-                                style={[styles.iconButton, { marginLeft: 12 }]}
-                                onPress={() => setBackgroundTheme(prev => prev === 'dark' ? 'light' : 'dark')}
-                            >
-                                <Ionicons
-                                    name={backgroundTheme === 'dark' ? "sunny-outline" : "moon-outline"}
-                                    size={24}
-                                    color="white"
-                                />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.iconButton, { marginLeft: 12, backgroundColor: autoRotate ? Theme.accent : 'rgba(0,0,0,0.5)' }]}
-                                onPress={() => setAutoRotate(!autoRotate)}
-                            >
-                                <Ionicons name="refresh-circle-outline" size={24} color="white" />
-                            </TouchableOpacity>
-                        </>
-                    )}
+            <View style={[styles.header, { top: 60, paddingHorizontal: 16, paddingTop: 10 }]}>
+                <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={() => router.back()}>
+                    <Ionicons name="arrow-back" size={24} color={dynamicIconColor} />
+                </TouchableOpacity>
+
+                <View style={[styles.modelToggle, { flex: 1, marginHorizontal: 20, alignItems: 'center', backgroundColor: backgroundTheme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)' }]}>
+                    <Text style={[styles.headerTitle, { color: dynamicIconColor }]}>{car?.brand?.toUpperCase()} {car?.model?.toUpperCase()}</Text>
                 </View>
 
-                <View style={styles.headerCenter}>
-                    <Text style={styles.headerTitle}>Bugatti Chiron</Text>
-                    <TouchableOpacity
-                        style={styles.modelToggle}
-                        onPress={() => setShowCustomized(!config.showCustomized)}
-                    >
-                        <Text style={styles.modelToggleText}>
-                            {config.showCustomized ? 'CUSTOMIZED' : 'ORIGINAL'}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.headerRight}>
-                    {viewMode === '3D' && (
-                        <>
-                            <TouchableOpacity
-                                style={[styles.iconButton, { marginRight: 12 }]}
-                                onPress={() => setViewType(prev => prev === 'exterior' ? 'interior' : 'exterior')}
-                            >
-                                <Ionicons
-                                    name={viewType === 'exterior' ? "car-outline" : "glasses-outline"}
-                                    size={24}
-                                    color="white"
-                                />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.iconButton, { marginRight: 12, backgroundColor: isPickerVisible ? Theme.accent : 'rgba(0,0,0,0.5)' }]}
-                                onPress={() => setIsPickerVisible(!isPickerVisible)}
-                            >
-                                <Ionicons name="color-filter-outline" size={24} color="white" />
-                            </TouchableOpacity>
-                        </>
-                    )}
-                    <TouchableOpacity style={styles.iconButton} onPress={() => setShowSpecs(!showSpecs)}>
-                        <Ionicons name="information-circle-outline" size={24} color="white" />
-                    </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                    style={[styles.toggleButton, { backgroundColor: viewMode === 'AR' ? '#FF3B30' : Colors.dark.accent, paddingVertical: 8, paddingHorizontal: 16 }]}
+                    onPress={() => setViewMode(prev => prev === '3D' ? 'AR' : '3D')}
+                >
+                    <Text style={[styles.toggleText, { fontSize: 13 }]}>{viewMode === '3D' ? 'AR MODE' : '3D MODE'}</Text>
+                </TouchableOpacity>
             </View>
+
+            {viewMode === '3D' && (
+                <View style={{ position: 'absolute', left: 20, top: 140, gap: 15, zIndex: 10 }}>
+                    <TouchableOpacity
+                        style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]}
+                        onPress={() => setBackgroundTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+                    >
+                        <Ionicons name={backgroundTheme === 'dark' ? "sunny-outline" : "moon-outline"} size={22} color={dynamicIconColor} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.iconButton, { backgroundColor: autoRotate ? Colors.dark.accent : dynamicButtonBg }]}
+                        onPress={() => setAutoRotate(!autoRotate)}
+                    >
+                        <Ionicons name="refresh-outline" size={22} color={autoRotate ? "white" : dynamicIconColor} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]}
+                        onPress={() => setViewType(prev => prev === 'exterior' ? 'interior' : 'exterior')}
+                    >
+                        <Ionicons name={viewType === 'exterior' ? "car-outline" : "glasses-outline"} size={22} color={dynamicIconColor} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.iconButton, { backgroundColor: isPickerVisible ? Colors.dark.accent : dynamicButtonBg }]}
+                        onPress={() => setIsPickerVisible(!isPickerVisible)}
+                    >
+                        <Ionicons name="color-palette-outline" size={22} color={isPickerVisible ? "white" : dynamicIconColor} />
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {viewMode === '3D' && (
+                <View style={{ position: 'absolute', right: 20, top: 140, gap: 15, zIndex: 10 }}>
+                    <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={handleZoomIn}>
+                        <Ionicons name="add" size={24} color={dynamicIconColor} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={handleZoomOut}>
+                        <Ionicons name="remove" size={24} color={dynamicIconColor} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={resetPosition}>
+                        <MaterialIcons name="center-focus-weak" size={24} color={dynamicIconColor} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.iconButton, { backgroundColor: showSpecs ? Colors.dark.accent : dynamicButtonBg }]} onPress={() => setShowSpecs(!showSpecs)}>
+                        <Ionicons name="information-circle-outline" size={24} color={showSpecs ? "white" : dynamicIconColor} />
+                    </TouchableOpacity>
+                </View>
+            )}
 
             <View style={styles.contentArea}>
                 {viewMode === '3D' ? (
@@ -187,24 +204,23 @@ function HybridContent() {
                     </View>
                 )}
 
-                <View style={styles.alignmentPointerWrapper}>
-                    <TouchableOpacity style={styles.resetButton} onPress={resetPosition}>
-                        <MaterialIcons name="explore" size={28} color="white" />
-                    </TouchableOpacity>
-                </View>
+                {viewMode === '3D' && (
+                    <View style={styles.alignmentPointerWrapper}>
+                        <TouchableOpacity style={[styles.resetButton, { backgroundColor: backgroundTheme === 'dark' ? 'rgba(20, 20, 20, 0.8)' : 'rgba(255, 255, 255, 0.9)' }]} onPress={resetPosition}>
+                            <MaterialIcons name="explore" size={28} color={dynamicIconColor} />
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                 {viewMode === 'AR' && (
                     <View style={styles.bottomControls}>
-                        {showSpecs && (
+                        {showSpecs && car && (
                             <View style={styles.specsPanel}>
-                                <Text style={styles.specTitle}>Bugatti Chiron Specs</Text>
-                                <View style={styles.specRow}><Text style={styles.specLabel}>Engine</Text><Text style={styles.specValue}>8.0L W16</Text></View>
-                                <View style={styles.specRow}><Text style={styles.specLabel}>Power</Text><Text style={styles.specValue}>1500 HP</Text></View>
+                                <Text style={styles.specTitle}>{car.brand.toUpperCase()} {car.model.toUpperCase()} Specs</Text>
+                                <View style={styles.specRow}><Text style={styles.specLabel}>Body Type</Text><Text style={styles.specValue}>{car.body_type}</Text></View>
+                                <View style={styles.specRow}><Text style={styles.specLabel}>Fuel Type</Text><Text style={styles.specValue}>{car.fuel_type}</Text></View>
                             </View>
                         )}
-                        <TouchableOpacity style={styles.toggleButton} onPress={() => setViewMode('3D')}>
-                            <Text style={styles.toggleText}>Back to 3D View</Text>
-                        </TouchableOpacity>
                     </View>
                 )}
             </View>

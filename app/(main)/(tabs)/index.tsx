@@ -1,7 +1,8 @@
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { ViroARSceneNavigator } from '@reactvision/react-viro';
 import * as ImagePicker from 'expo-image-picker';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useRef, useState, useEffect } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, withTiming, useSharedValue, interpolate, Extrapolate } from 'react-native-reanimated';
@@ -16,6 +17,7 @@ import { useTheme } from '../../context/ThemeContext';
 import CarCard from '../../../components/CarCard';
 import { getAllCars, getCarsByBodyType } from '../../../api/cars';
 import { Car } from '../../../types/car';
+import { useSmartScroll } from '../../hooks/useSmartScroll';
 
 type ARMode = 'surface' | 'marker' | 'custom';
 
@@ -33,23 +35,19 @@ export default function HomeScreen() {
   const [featuredCars, setFeaturedCars] = useState<Car[]>([]);
   const [recommendedCars, setRecommendedCars] = useState<Car[]>([]);
 
+  const navigation = useNavigation<DrawerNavigationProp<any>>();
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollY.value = event.contentOffset.y;
   });
 
-  const searchBarStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(
-      scrollY.value,
-      [0, 100],
-      [0, -100],
-      Extrapolate.CLAMP
-    );
+  const headerStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ translateY }],
-      opacity: interpolate(scrollY.value, [0, 50], [1, 0], Extrapolate.CLAMP),
-      height: interpolate(scrollY.value, [0, 100], [70, 0], Extrapolate.CLAMP),
+      transform: [{ translateY: 0 }],
+      opacity: 1,
     };
   });
+
+
 
 
 
@@ -189,20 +187,20 @@ export default function HomeScreen() {
 
   return (
     <View style={CommonStyles.container}>
-      <Animated.View style={[styles.searchContainerWrapper, searchBarStyle, { backgroundColor: colors.background }]}>
-        <View style={styles.searchContainer}>
-          <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Ionicons name="search" size={20} color={colors.textSecondary} />
-            <Text style={[styles.searchText, { color: colors.textTertiary }]}>Search cars, brands...</Text>
-          </View>
-          <Pressable style={[styles.filterButton, { backgroundColor: colors.accent }]}>
-            <Ionicons name="options-outline" size={20} color={colors.text} />
+      <Animated.View style={[styles.header, { backgroundColor: colors.background }, headerStyle]}>
+        <View style={styles.headerContent}>
+          <Pressable
+            style={[styles.menuButton, { backgroundColor: colors.surface }]}
+            onPress={() => navigation.openDrawer()}
+          >
+            <Ionicons name="menu" size={24} color={colors.text} />
           </Pressable>
+          <Text style={[styles.homeTitle, { color: colors.text }]}>Home</Text>
         </View>
       </Animated.View>
 
       <Animated.ScrollView
-        contentContainerStyle={{ paddingTop: 80, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingTop: 120, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
@@ -240,7 +238,7 @@ export default function HomeScreen() {
                 name={`${car.brand.charAt(0).toUpperCase() + car.brand.slice(1)} ${car.model.charAt(0).toUpperCase() + car.model.slice(1)}`}
                 image={car.images.exterior[1] || car.images.exterior[0]}
                 price={car.price_range}
-                rating={parseFloat(car.rating) || 4.5}
+                rating={Number(car.rating) || 4.5}
                 featured
               />
             ))}
@@ -308,12 +306,41 @@ export default function HomeScreen() {
 
 
 const styles = StyleSheet.create({
-  searchContainerWrapper: {
+  header: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 100,
+    paddingTop: 50,
+    paddingBottom: 10,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  menuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  homeTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   searchContainer: {
     flexDirection: 'row',

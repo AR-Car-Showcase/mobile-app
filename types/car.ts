@@ -24,11 +24,11 @@ export interface Car {
     body_type: string;
     fuel_type: string;
     transmission_type: string;
-    seating_capacity: string;
+    seating_capacity: number;
     price_range: string;
-    min_price: string;
-    max_price: string;
-    rating: string;
+    min_price_lakhs: number;
+    max_price_lakhs: number;
+    rating: number;
     specs: Record<string, any>;
     variants: CarVariant[];
     images: CarImages;
