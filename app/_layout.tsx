@@ -1,7 +1,7 @@
 import { Stack, Slot, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 
@@ -9,6 +9,7 @@ const InitialLayout = () => {
   const { user, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const { colors, theme } = useTheme();
 
   useEffect(() => {
     if (isLoading) return;
@@ -22,8 +23,8 @@ const InitialLayout = () => {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-        <ActivityIndicator size="large" color="#ffffff" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -32,12 +33,13 @@ const InitialLayout = () => {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: '#000' },
+        contentStyle: { backgroundColor: colors.background },
       }}
     >
       <Stack.Screen name="(main)" />
       <Stack.Screen name="auth/login" />
       <Stack.Screen name="auth/signup" />
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </Stack>
   );
 };
@@ -47,7 +49,6 @@ const RootLayout = () => {
     <ThemeProvider>
       <AuthProvider>
         <InitialLayout />
-        <StatusBar style="light" />
       </AuthProvider>
     </ThemeProvider>
   );

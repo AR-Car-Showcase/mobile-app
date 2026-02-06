@@ -10,6 +10,7 @@ import {
     ViroQuad,
     ViroMaterials,
 } from '@reactvision/react-viro';
+import { CarModels, DEFAULT_MODEL } from '../../constants/CarModels';
 
 export default function ARHybridScene(props?: any) {
     const [carScale, setCarScale] = useState(0.08);
@@ -19,7 +20,7 @@ export default function ARHybridScene(props?: any) {
 
     const navigator = props.arSceneNavigator || props.sceneNavigator;
     const viroAppProps = navigator?.viroAppProps;
-    const { materials, customModelUrl, sceneRef, showCustomized } = viroAppProps || {};
+    const { materials, customModelUrl, sceneRef, showCustomized, modelPath } = viroAppProps || {};
 
     useEffect(() => {
         const glassMaterial = {
@@ -90,8 +91,20 @@ export default function ARHybridScene(props?: any) {
 
             <ViroNode position={anchorPosition} scale={[carScale, carScale, carScale]} rotation={carRotation}>
                 <Viro3DObject
-                    key={`${showCustomized}-${customModelUrl || JSON.stringify(materials)}`}
-                    source={showCustomized && customModelUrl ? { uri: customModelUrl } : require('../../assets/models/car.glb')}
+                    key={`${showCustomized}-${customModelUrl || JSON.stringify(materials)}-${modelPath}`}
+                    source={(() => {
+                        if (showCustomized && customModelUrl) {
+                            return { uri: customModelUrl };
+                        }
+                        if (modelPath) {
+                            const fileName = modelPath.split('/').pop() || 'bugatti-chiron.glb';
+                            if (CarModels[fileName]) {
+                                return CarModels[fileName];
+                            }
+                            console.warn(`[AR] Model ${fileName} not found, using default`);
+                        }
+                        return DEFAULT_MODEL;
+                    })()}
                     type="GLB"
                     materials={showCustomized && !customModelUrl && materials ? Object.keys(materials) : undefined}
                     resources={[]}

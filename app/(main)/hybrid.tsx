@@ -165,6 +165,7 @@ function HybridContent() {
                         theme={backgroundTheme}
                         viewType={viewType}
                         autoRotate={autoRotate}
+                        modelPath={params.modelFile as string}
                     />
                 ) : (
                     <View style={styles.arContainer}>
@@ -175,7 +176,8 @@ function HybridContent() {
                                 sceneRef,
                                 materials: config.materials,
                                 customModelUrl: generatedModelUrl,
-                                showCustomized: config.showCustomized
+                                showCustomized: config.showCustomized,
+                                modelPath: params.modelFile as string
                             }}
                             style={styles.arView}
                         />

@@ -57,7 +57,7 @@
       "versionCode": 1
     },
     "extra": {
-      "API_URL": "http://192.168.0.7:8080/api",
+      "API_URL": "https://oversufficient-tinley-slimming.ngrok-free.dev/api",
       "router": {
         "scheme": "arcarshowcase"
       },

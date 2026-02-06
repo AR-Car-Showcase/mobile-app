@@ -1,7 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import React, { useEffect, useState, memo } from 'react';
-import { Pressable, StyleSheet, Text, View, Image, Dimensions } from 'react-native';
+import React, { useEffect, useState, memo, useRef } from 'react';
+import { Pressable, StyleSheet, Text, View, Dimensions, Image, ScrollView } from 'react-native';
 import Animated, {
     useAnimatedScrollHandler,
     useAnimatedStyle,
@@ -13,21 +14,27 @@ import { useTheme } from '../context/ThemeContext';
 import { getCarByBrandAndModel } from '../../api/cars';
 import { Car } from '../../types/car';
 import { useScrollContext } from '../context/ScrollContext';
-import { useSmartScroll } from '../hooks/useSmartScroll';
 
 const { width, height } = Dimensions.get('window');
 const TOP_TIER_HEIGHT = 88;
 const BOTTOM_TIER_HEIGHT = 88;
 const TOTAL_HEADER_HEIGHT = TOP_TIER_HEIGHT + BOTTOM_TIER_HEIGHT;
 
-const MemoizedThumbnail = memo(({ item, isSelected, onPress, colors }: { item: string, isSelected: boolean, onPress: () => void, colors: any }) => (
-    <Pressable
-        onPress={onPress}
-        style={[styles.thumbnailWrapper, isSelected && { borderColor: colors.accent, borderWidth: 2 }]}
-    >
-        <Image source={{ uri: item }} style={styles.thumbnail} />
-    </Pressable>
-));
+const MemoizedThumbnail = memo(({ item, isSelected, onPress, colors }: { item: string, isSelected: boolean, onPress: () => void, colors: any }) => {
+    return (
+        <Pressable
+            onPress={onPress}
+            style={[styles.thumbnailWrapper, isSelected && { borderColor: colors.accent, borderWidth: 2 }]}
+        >
+            <Image
+                source={{ uri: item }}
+                style={styles.thumbnail}
+                resizeMode="cover"
+                fadeDuration={0}
+            />
+        </Pressable>
+    );
+});
 
 const SPEC_CATEGORIES: Record<string, string[]> = {
     "Engine & Transmission": ["Engine Type", "Displacement", "Engine Displacement", "Max Power", "Max Torque", "No. of Cylinders", "Valves Per Cylinder", "Turbo Charger", "Transmission Type", "Gearbox", "Drive Type"],
@@ -54,6 +61,8 @@ export default function VehicleDetailsScreen() {
     const [loading, setLoading] = useState(true);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [selectedImageType, setSelectedImageType] = useState<'exterior' | 'interior'>('exterior');
+    const mainImageRef = useRef<any>(null);
+    const thumbnailRef = useRef<any>(null);
 
     const scrollHandler = useAnimatedScrollHandler((event) => {
         scrollY.value = event.contentOffset.y;
@@ -94,11 +103,19 @@ export default function VehicleDetailsScreen() {
     }, [params]);
 
     const loadCarData = async () => {
-        if (params.brand && params.model) {
-            const carData = await getCarByBrandAndModel(
-                params.brand as string,
-                params.model as string
-            );
+        let brand = params.brand as string;
+        let model = params.model as string;
+
+        if (!brand && !model && params.id) {
+            const parts = (params.id as string).split('-');
+            if (parts.length >= 2) {
+                brand = parts[0];
+                model = parts.slice(1).join('-');
+            }
+        }
+
+        if (brand && model) {
+            const carData = await getCarByBrandAndModel(brand, model);
             if (carData) {
                 setCar(carData);
             }
@@ -106,7 +123,6 @@ export default function VehicleDetailsScreen() {
         setLoading(false);
     };
 
-    // Merge all specs into one object for easier access
     const mergedSpecs = React.useMemo(() => {
         let merged: Record<string, any> = {};
         if (car && car.specs) {
@@ -164,6 +180,45 @@ export default function VehicleDetailsScreen() {
                         <Text style={[styles.quickSpecLabel, { color: colors.textSecondary }]}>{item.label}</Text>
                     </View>
                 ))}
+            </View>
+        );
+    };
+
+    const renderColorSelector = () => {
+        if (!car.images.colours || car.images.colours.length === 0) return null;
+
+        return (
+            <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Available Colors</Text>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.colorScrollContainer}
+                >
+                    {car.images.colours.map((color, index) => (
+                        <Pressable
+                            key={index}
+                            style={styles.colorItem}
+                            onPress={() => {
+                                const colorImageIndex = car.images.exterior.findIndex(img => img === color.image);
+                                if (colorImageIndex !== -1) {
+                                    setSelectedImageType('exterior');
+                                    setSelectedImageIndex(colorImageIndex);
+                                    mainImageRef.current?.scrollToIndex({ index: colorImageIndex, animated: true });
+                                }
+                            }}
+                        >
+                            <Image
+                                source={{ uri: color.image }}
+                                style={styles.colorImage}
+                                resizeMode="cover"
+                            />
+                            <Text style={[styles.colorName, { color: colors.text }]} numberOfLines={1}>
+                                {color.name}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </ScrollView>
             </View>
         );
     };
@@ -243,17 +298,54 @@ export default function VehicleDetailsScreen() {
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
             >
-                <Image
-                    key={currentImages[selectedImageIndex]}
-                    source={{ uri: currentImages[selectedImageIndex] || 'https://images.unsplash.com/photo-1617788138017-80ad40651399?q=80&w=1000&auto=format&fit=crop' }}
-                    style={styles.heroImage}
-                    resizeMode="cover"
-                />
+                <View style={{ height: 250 }}>
+                    <Animated.FlatList
+                        ref={mainImageRef}
+                        data={currentImages}
+                        keyExtractor={(item, index) => `${item}-${index}`}
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onMomentumScrollEnd={(ev) => {
+                            const newIndex = Math.round(ev.nativeEvent.contentOffset.x / width);
+                            if (newIndex !== selectedImageIndex && newIndex >= 0 && newIndex < currentImages.length) {
+                                setSelectedImageIndex(newIndex);
+                                const thumbnailWidth = 80 + 8;
+                                thumbnailRef.current?.scrollTo({
+                                    x: newIndex * thumbnailWidth - (width / 2) + (thumbnailWidth / 2),
+                                    animated: true
+                                });
+                            }
+                        }}
+                        renderItem={({ item }) => (
+                            <ExpoImage
+                                source={{ uri: item }}
+                                style={{ width: width, height: 250 }}
+                                contentFit="cover"
+                                cachePolicy="memory-disk"
+                                transition={null}
+                                recyclingKey={item}
+                            />
+                        )}
+                        getItemLayout={(_, index) => ({
+                            length: width,
+                            offset: width * index,
+                            index,
+                        })}
+                        initialNumToRender={3}
+                        maxToRenderPerBatch={3}
+                        windowSize={5}
+                    />
+                </View>
 
                 <View style={styles.imageTypeSelector}>
                     <Pressable
                         style={[styles.imageTypeBtn, selectedImageType === 'exterior' && { backgroundColor: colors.accent }]}
-                        onPress={() => { setSelectedImageType('exterior'); setSelectedImageIndex(0); }}
+                        onPress={() => {
+                            setSelectedImageType('exterior');
+                            setSelectedImageIndex(0);
+                            mainImageRef.current?.scrollToOffset({ offset: 0, animated: false });
+                        }}
                     >
                         <Text style={[styles.imageTypeBtnText, { color: selectedImageType === 'exterior' ? '#FFF' : colors.textSecondary }]}>
                             Exterior ({car.images.exterior.length})
@@ -261,7 +353,11 @@ export default function VehicleDetailsScreen() {
                     </Pressable>
                     <Pressable
                         style={[styles.imageTypeBtn, selectedImageType === 'interior' && { backgroundColor: colors.accent }]}
-                        onPress={() => { setSelectedImageType('interior'); setSelectedImageIndex(0); }}
+                        onPress={() => {
+                            setSelectedImageType('interior');
+                            setSelectedImageIndex(0);
+                            mainImageRef.current?.scrollToOffset({ offset: 0, animated: false });
+                        }}
                     >
                         <Text style={[styles.imageTypeBtnText, { color: selectedImageType === 'interior' ? '#FFF' : colors.textSecondary }]}>
                             Interior ({car.images.interior.length})
@@ -270,24 +366,25 @@ export default function VehicleDetailsScreen() {
                 </View>
 
                 <View style={styles.thumbnailsContainer}>
-                    <Animated.FlatList
+                    <Animated.ScrollView
+                        ref={thumbnailRef}
                         horizontal
-                        data={currentImages}
-                        keyExtractor={(item) => item}
-                        removeClippedSubviews={false}
-                        initialNumToRender={20}
-                        maxToRenderPerBatch={20}
-                        renderItem={({ item, index }) => (
-                            <MemoizedThumbnail
-                                item={item}
-                                isSelected={selectedImageIndex === index}
-                                onPress={() => setSelectedImageIndex(index)}
-                                colors={colors}
-                            />
-                        )}
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-                    />
+                    >
+                        {currentImages.map((item, index) => (
+                            <MemoizedThumbnail
+                                key={`${item}-${index}`}
+                                item={item}
+                                isSelected={index === selectedImageIndex}
+                                onPress={() => {
+                                    setSelectedImageIndex(index);
+                                    mainImageRef.current?.scrollToIndex({ index, animated: true });
+                                }}
+                                colors={colors}
+                            />
+                        ))}
+                    </Animated.ScrollView>
                 </View>
 
                 <View style={[styles.priceCard, { backgroundColor: colors.surface }]}>
@@ -305,21 +402,39 @@ export default function VehicleDetailsScreen() {
                 <View style={styles.actionButtonsContainer}>
                     <Pressable
                         style={[styles.actionButton, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.accent }]}
-                        onPress={() => router.push({ pathname: '/hybrid', params: { brand: car.brand, model: car.model, initialMode: 'AR' } })}
+                        onPress={() => router.push({
+                            pathname: '/(main)/hybrid',
+                            params: {
+                                brand: car.brand,
+                                model: car.model,
+                                initialMode: 'AR',
+                                modelFile: car.model_3d
+                            }
+                        })}
                     >
                         <MaterialCommunityIcons name="cube-scan" size={24} color={colors.accent} />
                         <Text style={[styles.actionButtonText, { color: colors.accent }]}>View in AR</Text>
                     </Pressable>
                     <Pressable
                         style={[styles.actionButton, { backgroundColor: colors.accent }]}
-                        onPress={() => router.push({ pathname: '/hybrid', params: { brand: car.brand, model: car.model, initialMode: '3D' } })}
+                        onPress={() => router.push({
+                            pathname: '/(main)/hybrid',
+                            params: {
+                                brand: car.brand,
+                                model: car.model,
+                                initialMode: '3D',
+                                modelFile: car.model_3d
+                            }
+                        })}
                     >
-                        <Ionicons name="color-palette-outline" size={24} color="#FFF" />
-                        <Text style={[styles.actionButtonText, { color: '#FFF' }]}>Customize</Text>
+                        <Ionicons name="cube-outline" size={24} color="#FFF" />
+                        <Text style={[styles.actionButtonText, { color: '#FFF' }]}>View in 3D</Text>
                     </Pressable>
                 </View>
 
                 {renderQuickSpecs()}
+
+                {renderColorSelector()}
 
                 {renderKeySpecs()}
 
@@ -602,5 +717,25 @@ const styles = StyleSheet.create({
     accordionContent: {
         paddingHorizontal: 16,
         paddingBottom: 16,
+    },
+    colorScrollContainer: {
+        paddingVertical: 8,
+        gap: 12,
+    },
+    colorItem: {
+        alignItems: 'center',
+        marginRight: 12,
+        width: 100,
+    },
+    colorImage: {
+        width: 100,
+        height: 70,
+        borderRadius: 8,
+        marginBottom: 8,
+    },
+    colorName: {
+        fontSize: 12,
+        fontWeight: '500',
+        textAlign: 'center',
     },
 });

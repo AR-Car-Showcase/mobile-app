@@ -1,9 +1,10 @@
 import React, { Suspense, useRef, useEffect, useState, useMemo } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text, PanResponder } from 'react-native';
 import { Canvas, useThree, useFrame } from '@react-three/fiber/native';
-import { useGLTF } from '@react-three/drei/native';
+import { useGLTF, Center } from '@react-three/drei/native';
 import { useCarContext } from '../app/context/CarContext';
 import * as THREE from 'three';
+import { CarModels, DEFAULT_MODEL } from '../constants/CarModels';
 
 interface CustomizerScreenProps {
     rotationY: number;
@@ -16,6 +17,7 @@ interface CustomizerScreenProps {
     theme: 'dark' | 'light';
     viewType: 'exterior' | 'interior';
     autoRotate?: boolean;
+    modelPath?: string;
 }
 
 function SceneController({
@@ -26,7 +28,8 @@ function SceneController({
     rotationXRef,
     zoomRef,
     viewType,
-    autoRotate = false
+    autoRotate = false,
+    modelPath = '../assets/models/car.glb'
 }: {
     targetRotationY: number,
     targetRotationX: number,
@@ -35,11 +38,24 @@ function SceneController({
     rotationXRef: React.MutableRefObject<number>,
     zoomRef: React.MutableRefObject<number>,
     viewType: 'exterior' | 'interior',
-    autoRotate?: boolean
+    autoRotate?: boolean,
+    modelPath?: string
 }) {
     const { camera } = useThree();
     const groupRef = useRef<THREE.Group>(null);
-    const { scene } = useGLTF(require('../assets/models/car.glb')) as any;
+
+    const modelToLoad = useMemo(() => {
+        if (modelPath) {
+            const fileName = modelPath.split('/').pop() || 'car.glb';
+            if (CarModels[fileName]) {
+                return CarModels[fileName];
+            }
+            console.warn(`Model ${fileName} not found in CarModels map, using default`);
+        }
+        return DEFAULT_MODEL;
+    }, [modelPath]);
+
+    const { scene } = useGLTF(modelToLoad) as any;
     const { config } = useCarContext();
     const materialsRef = useRef<THREE.Material[]>([]);
     const originalColorsRef = useRef<{ [key: string]: string }>({});
@@ -124,7 +140,7 @@ function SceneController({
             const angle = Math.PI / 4;
             const targetPos = new THREE.Vector3(
                 distance * Math.cos(angle),
-                distance * 0.4,
+                distance * Math.sin(angle) * 0.5 + 2,
                 distance * Math.sin(angle)
             );
             camera.position.lerp(targetPos, 0.1);
@@ -133,8 +149,14 @@ function SceneController({
     });
 
     return (
-        <group ref={groupRef}>
-            <primitive object={scene} scale={[1.5, 1.5, 1.5]} position={[0, -0.5, 0]} />
+        <group ref={groupRef} dispose={null}>
+            <Center>
+                <primitive
+                    object={scene}
+                    scale={[1.5, 1.5, 1.5]}
+                    rotation={[0, Math.PI, 0]}
+                />
+            </Center>
         </group>
     );
 }
@@ -149,7 +171,8 @@ export default function CustomizerScreen({
     touchEnabled,
     theme,
     viewType,
-    autoRotate
+    autoRotate,
+    modelPath
 }: CustomizerScreenProps) {
     const [loading, setLoading] = useState(true);
     const bgColor = theme === 'dark' ? '#111' : '#f0f0f0';
@@ -236,6 +259,7 @@ export default function CustomizerScreen({
                         zoomRef={zoomRef}
                         viewType={viewType}
                         autoRotate={autoRotate}
+                        modelPath={modelPath}
                     />
                 </Suspense>
             </Canvas>

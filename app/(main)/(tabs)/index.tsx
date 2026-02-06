@@ -239,6 +239,7 @@ export default function HomeScreen() {
                 image={car.images.exterior[1] || car.images.exterior[0]}
                 price={car.price_range}
                 rating={Number(car.rating) || 4.5}
+                onPress={() => router.push(`/details?brand=${car.brand}&model=${car.model}`)}
                 featured
               />
             ))}

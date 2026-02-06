@@ -32,6 +32,7 @@ export interface Car {
     specs: Record<string, any>;
     variants: CarVariant[];
     images: CarImages;
+    model_3d?: string;
 }
 
 export type BodyType = 'SUV' | 'Sedan' | 'Hatchback' | 'MUV' | 'Convertible' | 'Coupe' | 'Minivan' | 'Pickup Truck';
