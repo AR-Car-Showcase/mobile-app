@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useEffect, useState, memo, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View, Dimensions, Image, ScrollView } from 'react-native';
+import { Pressable, StyleSheet, Text, View, Dimensions, Image, ScrollView, RefreshControl } from 'react-native';
 import Animated, {
     useAnimatedScrollHandler,
     useAnimatedStyle,
@@ -11,7 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { CommonStyles } from '../../constants';
 import { useTheme } from '../context/ThemeContext';
-import { getCarByBrandAndModel } from '../../api/cars';
+import { getCarByBrandAndModel, getCarById } from '../../api/cars';
 import { Car } from '../../types/car';
 import { useScrollContext } from '../context/ScrollContext';
 
@@ -59,6 +59,7 @@ export default function VehicleDetailsScreen() {
     const { scrollY } = useScrollContext();
     const [car, setCar] = useState<Car | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [selectedImageType, setSelectedImageType] = useState<'exterior' | 'interior'>('exterior');
     const mainImageRef = useRef<any>(null);
@@ -100,22 +101,30 @@ export default function VehicleDetailsScreen() {
 
     useEffect(() => {
         loadCarData();
-    }, [params]);
+    }, [params.brand, params.model, params.id]);
 
-    const loadCarData = async () => {
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await loadCarData(true);
+        setRefreshing(false);
+    };
+
+    const loadCarData = async (forceRefresh = false) => {
+        if (params.id) {
+            setLoading(true);
+            const carData = await getCarById(params.id as string);
+            if (carData) {
+                setCar(carData);
+            }
+            setLoading(false);
+            return;
+        }
+
         let brand = params.brand as string;
         let model = params.model as string;
 
-        if (!brand && !model && params.id) {
-            const parts = (params.id as string).split('-');
-            if (parts.length >= 2) {
-                brand = parts[0];
-                model = parts.slice(1).join('-');
-            }
-        }
-
         if (brand && model) {
-            const carData = await getCarByBrandAndModel(brand, model);
+            const carData = await getCarByBrandAndModel(brand, model, forceRefresh);
             if (carData) {
                 setCar(carData);
             }
@@ -162,9 +171,9 @@ export default function VehicleDetailsScreen() {
     const renderQuickSpecs = () => {
         const quickSpecsData = [
             { label: 'Engine', value: mergedSpecs['Engine Displacement'] || mergedSpecs['Displacement'], icon: 'engine', library: 'MCI' },
-            { label: 'Fuel', value: mergedSpecs['Fuel Type'] || car.fuel_type, icon: 'gas-station', library: 'MCI' },
-            { label: 'Seats', value: mergedSpecs['Seating Capacity'], icon: 'car-seat', library: 'MCI' },
-            { label: 'Transmission', value: mergedSpecs['Transmission Type'] || mergedSpecs['Gearbox'], icon: 'cog-outline', library: 'MCI' },
+            { label: 'Fuel', value: mergedSpecs['Fuel Type'] || car.fuelType, icon: 'gas-station', library: 'MCI' },
+            { label: 'Seats', value: mergedSpecs['Seating Capacity'] || car.seatingCapacity, icon: 'car-seat', library: 'MCI' },
+            { label: 'Transmission', value: mergedSpecs['Transmission Type'] || mergedSpecs['Gearbox'] || car.transmissionType, icon: 'cog-outline', library: 'MCI' },
         ].filter(item => item.value);
 
         return (
@@ -297,6 +306,14 @@ export default function VehicleDetailsScreen() {
                 showsVerticalScrollIndicator={false}
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[colors.accent]}
+                        tintColor={colors.accent}
+                    />
+                }
             >
                 <View style={{ height: 250 }}>
                     <Animated.FlatList
@@ -390,7 +407,7 @@ export default function VehicleDetailsScreen() {
                 <View style={[styles.priceCard, { backgroundColor: colors.surface }]}>
                     <View>
                         <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>Estimated Price</Text>
-                        <Text style={[styles.priceValue, { color: colors.text }]}>{car.price_range}</Text>
+                        <Text style={[styles.priceValue, { color: colors.text }]}>{car.priceRange}</Text>
                         <Text style={[styles.priceDetail, { color: colors.textSecondary }]}>Ex-showroom</Text>
                     </View>
                     <View style={styles.ratingContainer}>
@@ -405,10 +422,12 @@ export default function VehicleDetailsScreen() {
                         onPress={() => router.push({
                             pathname: '/(main)/hybrid',
                             params: {
+                                id: car.id,
                                 brand: car.brand,
                                 model: car.model,
                                 initialMode: 'AR',
-                                modelFile: car.model_3d
+                                modelFile: car.model3D,
+                                carData: JSON.stringify(car)
                             }
                         })}
                     >
@@ -420,10 +439,12 @@ export default function VehicleDetailsScreen() {
                         onPress={() => router.push({
                             pathname: '/(main)/hybrid',
                             params: {
+                                id: car.id,
                                 brand: car.brand,
                                 model: car.model,
                                 initialMode: '3D',
-                                modelFile: car.model_3d
+                                modelFile: car.model3D,
+                                carData: JSON.stringify(car)
                             }
                         })}
                     >

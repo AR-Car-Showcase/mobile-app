@@ -4,46 +4,54 @@ import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
-
-interface CarModel {
-    id: string;
-    name: string;
-    brand: string;
-    fileName: string;
-    thumbnail?: string;
-}
-
-const AVAILABLE_MODELS: CarModel[] = [
-    { id: '1', name: 'Scorpio-N', brand: 'Mahindra', fileName: 'mahindra-scorpio-n.glb' },
-    { id: '2', name: 'Baleno', brand: 'Maruti', fileName: 'maruti-baleno.glb' },
-    { id: '3', name: 'Brezza', brand: 'Maruti', fileName: 'maruti-brezza.glb' },
-    { id: '4', name: 'R8', brand: 'Audi', fileName: 'audi-r8.glb' },
-    { id: '5', name: 'CR-V', brand: 'Honda', fileName: 'honda-crv.glb' },
-    { id: '6', name: 'Integra', brand: 'Honda', fileName: 'honda-integra.glb' },
-    { id: '7', name: 'AMG GTR', brand: 'Mercedes', fileName: 'mercedes-amg-gtr.glb' },
-    { id: '8', name: 'S-Class', brand: 'Mercedes', fileName: 'mercedes-s-class.glb' },
-    { id: '9', name: 'Chiron', brand: 'Bugatti', fileName: 'bugatti-chiron.glb' },
-];
+import { carsApi } from '../../api/cars';
+import { Car } from '../../types/car';
 
 export default function ARGalleryScreen() {
     const { colors } = useTheme();
     const router = useRouter();
     const [selectedModel, setSelectedModel] = useState<string | null>(null);
+    const [cars, setCars] = useState<Car[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleModelPress = (model: CarModel) => {
-        setSelectedModel(model.id);
+    React.useEffect(() => {
+        const loadModels = async () => {
+            setLoading(true);
+            try {
+                const allCars = await carsApi.getAllCars(true); // Force refresh to get latest mappings
+                // Show cars that have a 3D model URL OR are in our hardcoded 9-car list
+                const models = allCars.filter(car => car.model3D);
+
+                if (models.length === 0) {
+                    console.warn('[GALLERY] No cars with 3D models found in API. Check backend mappings.');
+                }
+
+                setCars(models);
+            } catch (error) {
+                console.error('Failed to load AR models:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadModels();
+    }, []);
+
+    const handleModelPress = (car: Car) => {
+        setSelectedModel(String(car.id));
         router.push({
             pathname: '/(main)/hybrid',
             params: {
-                brand: model.brand.toLowerCase(),
-                model: model.name.toLowerCase(),
+                id: car.id,
+                brand: car.brand,
+                model: car.model,
                 initialMode: 'AR',
-                modelFile: model.fileName
+                modelFile: car.model3D,
+                carData: JSON.stringify(car)
             }
         });
     };
 
-    const renderModelCard = ({ item }: { item: CarModel }) => (
+    const renderModelCard = ({ item }: { item: Car }) => (
         <TouchableOpacity
             style={[styles.modelCard, { backgroundColor: colors.surface }]}
             onPress={() => handleModelPress(item)}
@@ -54,11 +62,19 @@ export default function ARGalleryScreen() {
                 style={styles.cardGradient}
             >
                 <View style={styles.iconContainer}>
-                    <MaterialCommunityIcons
-                        name="car-sports"
-                        size={60}
-                        color={colors.accent}
-                    />
+                    {item.images.exterior[0] ? (
+                        <Image
+                            source={{ uri: item.images.exterior[0] }}
+                            style={{ width: 120, height: 80, borderRadius: 8 }}
+                            resizeMode="contain"
+                        />
+                    ) : (
+                        <MaterialCommunityIcons
+                            name="car-sports"
+                            size={60}
+                            color={colors.accent}
+                        />
+                    )}
                 </View>
 
                 <View style={styles.modelInfo}>
@@ -66,13 +82,13 @@ export default function ARGalleryScreen() {
                         {item.brand}
                     </Text>
                     <Text style={[styles.modelName, { color: colors.text }]}>
-                        {item.name}
+                        {item.model}
                     </Text>
                 </View>
 
                 <View style={[styles.arBadge, { backgroundColor: colors.accent }]}>
                     <MaterialCommunityIcons name="cube-scan" size={16} color="#FFF" />
-                    <Text style={styles.arBadgeText}>AR Ready</Text>
+                    <Text style={styles.arBadgeText}>AR READY</Text>
                 </View>
             </LinearGradient>
         </TouchableOpacity>
@@ -82,34 +98,49 @@ export default function ARGalleryScreen() {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar barStyle={colors.text === '#FFFFFF' ? 'light-content' : 'dark-content'} />
 
-            <View style={[styles.header, { backgroundColor: colors.surface }]}>
-                <View style={styles.headerContent}>
-                    <MaterialCommunityIcons name="view-grid" size={28} color={colors.accent} />
-                    <View style={styles.headerTextContainer}>
-                        <Text style={[styles.headerTitle, { color: colors.text }]}>AR Gallery</Text>
-                        <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-                            {AVAILABLE_MODELS.length} Models Available
-                        </Text>
-                    </View>
+            {loading ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ color: colors.textSecondary }}>Loading models...</Text>
                 </View>
-            </View>
+            ) : (
+                <FlatList
+                    data={cars}
+                    renderItem={renderModelCard}
+                    keyExtractor={(item) => String(item.id)}
+                    numColumns={2}
+                    contentContainerStyle={styles.gridContainer}
+                    showsVerticalScrollIndicator={false}
+                    columnWrapperStyle={styles.row}
+                    ListHeaderComponent={
+                        <View style={{ marginBottom: 16 }}>
+                            <View style={[styles.headerContent, { paddingVertical: 10 }]}>
+                                <MaterialCommunityIcons name="view-grid" size={28} color={colors.accent} />
+                                <View style={styles.headerTextContainer}>
+                                    <Text style={[styles.headerTitle, { color: colors.text }]}>AR Gallery</Text>
+                                    <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                                        Explore {cars.length} Identified Models
+                                    </Text>
+                                </View>
+                            </View>
 
-            <View style={[styles.infoBanner, { backgroundColor: colors.accent + '15' }]}>
-                <Ionicons name="information-circle" size={20} color={colors.accent} />
-                <Text style={[styles.infoBannerText, { color: colors.text }]}>
-                    Tap any car to view it in AR
-                </Text>
-            </View>
+                            {/* Debug Info Overlay */}
+                            <View style={[styles.debugBanner, { backgroundColor: colors.accent + '15' }]}>
+                                <Ionicons name="bug-outline" size={16} color={colors.accent} style={{ marginRight: 8 }} />
+                                <Text style={[styles.debugText, { color: colors.text }]}>
+                                    DEBUG: Identified {cars.length} 3D models.
+                                </Text>
+                            </View>
 
-            <FlatList
-                data={AVAILABLE_MODELS}
-                renderItem={renderModelCard}
-                keyExtractor={(item) => item.id}
-                numColumns={2}
-                contentContainerStyle={styles.gridContainer}
-                showsVerticalScrollIndicator={false}
-                columnWrapperStyle={styles.row}
-            />
+                            <View style={[styles.infoBanner, { backgroundColor: colors.accent + '10', marginTop: 12, marginHorizontal: 0 }]}>
+                                <Ionicons name="information-circle" size={20} color={colors.accent} />
+                                <Text style={[styles.infoBannerText, { color: colors.text }]}>
+                                    Tap any car to view it in AR
+                                </Text>
+                            </View>
+                        </View>
+                    }
+                />
+            )}
         </View>
     );
 }
@@ -156,6 +187,18 @@ const styles = StyleSheet.create({
     infoBannerText: {
         fontSize: 14,
         fontWeight: '500',
+    },
+    debugBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+    },
+    debugText: {
+        fontSize: 12,
+        fontWeight: '600',
     },
     gridContainer: {
         padding: 16,

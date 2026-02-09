@@ -5,7 +5,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { CommonStyles, ARStyles, Colors } from '../../constants';
 import { HybridStyles as styles } from '../../constants/HybridStyles';
 import { CarProvider, useCarContext } from '../context/CarContext';
-import { getCarByBrandAndModel } from '../../api/cars';
+import { getCarByBrandAndModel, getCarById } from '../../api/cars';
 import CustomizerScreen from '../../components/CustomizerScreen';
 import CustomizationDrawer from '../../components/CustomizationDrawer';
 import { generateCustomModel, getModelUrl } from '../services/blenderService';
@@ -36,16 +36,31 @@ function HybridContent() {
 
     React.useEffect(() => {
         const loadInitialData = async () => {
-            if (params.brand && params.model) {
-                const carData = await getCarByBrandAndModel(params.brand as string, params.model as string);
-                setCar(carData);
+            if (params.carData) {
+                try {
+                    const carData = JSON.parse(params.carData as string);
+                    setCar(carData);
+                    console.log('[HYBRID] Using car data passed from details screen');
+                } catch (e) {
+                    console.error('[HYBRID] Failed to parse carData param:', e);
+                }
             }
+            else if (params.id) {
+                const carData = await getCarById(params.id as string);
+                if (carData) setCar(carData);
+                console.log(`[HYBRID] Fetched car ${params.id} from API`);
+            } else if (params.brand && params.model) {
+                const carData = await getCarByBrandAndModel(params.brand as string, params.model as string);
+                if (carData) setCar(carData);
+                console.log('[HYBRID] Fetched car data from API');
+            }
+
             if (params.initialMode) {
                 setViewMode(params.initialMode as '3D' | 'AR');
             }
         };
         loadInitialData();
-    }, [params]);
+    }, [params.carData, params.brand, params.model, params.id, params.initialMode]);
 
     const handleRotateLeft = () => sceneRef.current?.rotateLeft?.();
     const handleRotateRight = () => sceneRef.current?.rotateRight?.();
@@ -165,7 +180,7 @@ function HybridContent() {
                         theme={backgroundTheme}
                         viewType={viewType}
                         autoRotate={autoRotate}
-                        modelPath={params.modelFile as string}
+                        modelPath={car?.model3D || params.modelFile as string}
                     />
                 ) : (
                     <View style={styles.arContainer}>
@@ -177,7 +192,7 @@ function HybridContent() {
                                 materials: config.materials,
                                 customModelUrl: generatedModelUrl,
                                 showCustomized: config.showCustomized,
-                                modelPath: params.modelFile as string
+                                modelPath: car?.model3D || params.modelFile as string
                             }}
                             style={styles.arView}
                         />

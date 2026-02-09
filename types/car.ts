@@ -1,10 +1,11 @@
 export interface CarVariant {
     variant: string;
     price: string;
-    engine_cc: string;
+    engineCC: string;
     fuel: string;
     transmission: string;
-    key_specifications: string[];
+    mileage: string;
+    keySpecifications: string[];
 }
 
 export interface CarColour {
@@ -19,20 +20,21 @@ export interface CarImages {
 }
 
 export interface Car {
+    id: number;
     brand: string;
     model: string;
-    body_type: string;
-    fuel_type: string;
-    transmission_type: string;
-    seating_capacity: number;
-    price_range: string;
-    min_price_lakhs: number;
-    max_price_lakhs: number;
+    bodyType: string;
+    fuelType: string;
+    transmissionType: string;
+    seatingCapacity: number;
+    priceRange: string;
+    minPriceLakhs: number;
+    maxPriceLakhs: number;
     rating: number;
     specs: Record<string, any>;
     variants: CarVariant[];
     images: CarImages;
-    model_3d?: string;
+    model3D?: string;
 }
 
 export type BodyType = 'SUV' | 'Sedan' | 'Hatchback' | 'MUV' | 'Convertible' | 'Coupe' | 'Minivan' | 'Pickup Truck';
