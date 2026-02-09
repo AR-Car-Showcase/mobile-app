@@ -10,6 +10,7 @@ import {
   ViroARTrackingTargets,
   ViroAnimations,
 } from '@reactvision/react-viro';
+import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
 
 interface ARCustomMarkerSceneProps {
   customImageUri: string | null;
@@ -115,11 +116,22 @@ export default function ARCustomMarkerScene({ customImageUri, sceneNavigator }: 
           }}
         >
           <Viro3DObject
-            source={require('../../assets/models/car.glb')}
+            key={sceneNavigator?.viroAppProps?.modelPath || 'default'}
+            source={(() => {
+              const mvp = sceneNavigator?.viroAppProps;
+              const modelPath = mvp?.modelPath || mvp?.model3D;
+              if (modelPath && modelPath.startsWith('http')) {
+                return { uri: modelPath };
+              }
+              return DEFAULT_MODEL_OBJ;
+            })()}
             type="GLB"
             resources={[]}
             scale={[1, 1, 1]}
             lightReceivingBitMask={1}
+            onLoadStart={() => console.log('[CUSTOM] ⏳ Loading model:', sceneNavigator?.viroAppProps?.modelPath || 'default')}
+            onLoadEnd={() => console.log('[CUSTOM] ✅ Model loaded successfully')}
+            onError={(event: any) => console.warn('[CUSTOM] ❌ Failed to load model:', event.nativeEvent.error)}
           />
         </ViroNode>
       </ViroARImageMarker>

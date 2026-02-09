@@ -10,7 +10,7 @@ import {
     ViroQuad,
     ViroMaterials,
 } from '@reactvision/react-viro';
-import { CarModels, DEFAULT_MODEL } from '../../constants/CarModels';
+import { CarModels, DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
 
 export default function ARHybridScene(props?: any) {
     const [carScale, setCarScale] = useState(0.08);
@@ -89,7 +89,11 @@ export default function ARHybridScene(props?: any) {
                 <ViroQuad rotation={[-90, 0, 0]} width={2} height={2} opacity={0.3} />
             </ViroARPlane>
 
-            <ViroNode position={anchorPosition} scale={[carScale, carScale, carScale]} rotation={carRotation}>
+            <ViroNode
+                position={anchorPosition}
+                scale={[carScale, carScale, carScale]}
+                rotation={carRotation}
+            >
                 <Viro3DObject
                     key={`${showCustomized}-${customModelUrl || JSON.stringify(materials)}-${modelPath}`}
                     source={(() => {
@@ -97,20 +101,27 @@ export default function ARHybridScene(props?: any) {
                             return { uri: customModelUrl };
                         }
                         if (modelPath) {
-                            const fileName = modelPath.split('/').pop() || 'bugatti-chiron.glb';
+                            // NEW: Support remote URLs from our backend
+                            if (modelPath.startsWith('http')) {
+                                return { uri: modelPath };
+                            }
+
+                            const fileName = modelPath.split('/').pop() || 'car.glb';
                             if (CarModels[fileName]) {
                                 return CarModels[fileName];
                             }
                             console.warn(`[AR] Model ${fileName} not found, using default`);
                         }
-                        return DEFAULT_MODEL;
+                        return DEFAULT_MODEL_OBJ;
                     })()}
                     type="GLB"
                     materials={showCustomized && !customModelUrl && materials ? Object.keys(materials) : undefined}
                     resources={[]}
                     scale={[1, 1, 1]}
                     lightReceivingBitMask={1}
-                    onLoadEnd={() => console.log('[SUCCESS] 3D Model loaded successfully')}
+                    onLoadStart={() => console.log(`[AR] ⏳ Loading model: ${modelPath || 'default'}`)}
+                    onLoadEnd={() => console.log('[SUCCESS] ✅ 3D Model loaded successfully in AR')}
+                    onError={(event: any) => console.warn('[AR] ❌ Failed to load model:', event.nativeEvent.error)}
                 />
             </ViroNode>
         </ViroARScene>

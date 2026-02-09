@@ -1,51 +1,147 @@
-import { Car, BodyType } from '../types/car';
-import carsData from '../assets/cars_data.json';
+import { Car, CarImages } from '../types/car';
+import { CarData, CarImage } from '../types/api';
+import { apiClient, BASE_URL } from './client';
 
-const CARS_DATA: Car[] = carsData as unknown as Car[];
+const adaptBackendCarToFrontend = (carData: CarData): Car => {
+    const specs: Record<string, any> = {};
+    carData.details.forEach(detail => {
+        if (!specs[detail.category]) {
+            specs[detail.category] = {};
+        }
+        specs[detail.category][detail.key] = detail.value;
+    });
+
+    const images: CarImages = {
+        exterior: [],
+        interior: [],
+        colours: carData.colors.map(c => ({ name: c.name, image: c.imageUrl })) || []
+    };
+
+    carData.images.forEach((img: CarImage) => {
+        if (img.type.toLowerCase() === 'exterior') {
+            images.exterior.push(img.imageUrl);
+        } else if (img.type.toLowerCase() === 'interior') {
+            images.interior.push(img.imageUrl);
+        }
+    });
+
+    if (images.exterior.length === 0) images.exterior.push('https://via.placeholder.com/400x300?text=No+Image');
+
+    const base = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
+    let model3D = `${base}/static/models/car.glb`;
+
+    if (carData.modelUrl && carData.modelUrl.length > 0) {
+        if (carData.modelUrl.startsWith('http')) {
+            model3D = carData.modelUrl;
+        } else {
+            let relativePath = carData.modelUrl;
+
+            if (relativePath.startsWith('/api/')) {
+                relativePath = relativePath.substring(5);
+            } else if (relativePath.startsWith('api/')) {
+                relativePath = relativePath.substring(4);
+            }
+
+            if (!relativePath.startsWith('/')) {
+                relativePath = '/' + relativePath;
+            }
+
+            model3D = `${base}${relativePath}`;
+        }
+    }
+
+    return {
+        id: carData.id,
+        brand: carData.brand,
+        model: carData.model,
+        bodyType: carData.bodyType,
+        fuelType: carData.fuelType,
+        transmissionType: carData.transmissionType,
+        seatingCapacity: carData.seatingCapacity,
+        priceRange: carData.priceRange,
+        minPriceLakhs: carData.minPriceLakhs,
+        maxPriceLakhs: carData.maxPriceLakhs,
+        rating: carData.rating,
+        specs,
+        variants: carData.variants.map(v => ({
+            variant: v.variant,
+            price: v.price,
+            engineCC: v.engineCc,
+            fuel: v.fuel,
+            transmission: v.transmission,
+            mileage: v.mileage,
+            keySpecifications: v.keySpecifications || []
+        })),
+        images,
+        model3D
+    };
+};
+
+let cachedCars: Car[] | null = null;
 
 /**
- * Mock API for car data - designed for easy backend swap
+ * Backend API integration for car data
  */
 export const carsApi = {
     /**
      * Get all cars
      */
-    getAllCars: async (): Promise<Car[]> => {
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 100));
-        return CARS_DATA;
+    getAllCars: async (forceRefresh = false): Promise<Car[]> => {
+        if (!forceRefresh && cachedCars) {
+            return cachedCars;
+        }
+
+        try {
+            const data = await apiClient.get<CarData[]>('/cars/allcars');
+            const adapted = data.map(adaptBackendCarToFrontend);
+            cachedCars = adapted;
+            return adapted;
+        } catch (error) {
+            console.error('[API] Failed to fetch cars:', error);
+            return cachedCars || [];
+        }
     },
 
     /**
      * Get cars by body type (SUV, Sedan, Hatchback, etc.)
      */
     getCarsByBodyType: async (bodyType: string): Promise<Car[]> => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        return CARS_DATA.filter(car =>
-            car.body_type.toLowerCase() === bodyType.toLowerCase()
-        );
+        const data = await apiClient.get<CarData[]>(`/cars/body-type/${bodyType}`);
+        return data.map(adaptBackendCarToFrontend);
     },
 
     /**
      * Get cars by fuel type
      */
     getCarsByFuelType: async (fuelType: string): Promise<Car[]> => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        return CARS_DATA.filter(car =>
-            car.fuel_type.toLowerCase() === fuelType.toLowerCase()
-        );
+        const data = await apiClient.get<CarData[]>(`/cars/fuel-type/${fuelType}`);
+        return data.map(adaptBackendCarToFrontend);
+    },
+
+    /**
+     * Get a single car by ID
+     */
+    getCarById: async (id: string | number): Promise<Car | null> => {
+        try {
+            const data = await apiClient.get<CarData>(`/cars/car/${id}`);
+            return adaptBackendCarToFrontend(data);
+        } catch (error) {
+            console.error(`[API] Failed to fetch car with id ${id}:`, error);
+            return null;
+        }
     },
 
     /**
      * Get a single car by brand and model
      */
-    getCarByBrandAndModel: async (brand: string, model: string): Promise<Car | null> => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const found = CARS_DATA.find(car => {
-            const brandMatch = car.brand.toLowerCase() === brand.toLowerCase();
-            const modelMatch = car.model.toLowerCase() === model.toLowerCase();
-            return brandMatch && modelMatch;
-        });
+    getCarByBrandAndModel: async (brand: string, model: string, forceRefresh = false): Promise<Car | null> => {
+        // Optimization: In a real app, we should have a specific endpoint for this
+        // For now, we fetch all and find, or we could add a backend endpoint
+        const allCars = await carsApi.getAllCars(forceRefresh);
+        const found = allCars.find(car =>
+            car.brand.toLowerCase() === brand.toLowerCase() &&
+            car.model.toLowerCase() === model.toLowerCase()
+        );
         return found || null;
     },
 
@@ -53,12 +149,12 @@ export const carsApi = {
      * Search cars by query (searches brand, model, body_type)
      */
     searchCars: async (query: string): Promise<Car[]> => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        const allCars = await carsApi.getAllCars();
         const lowerQuery = query.toLowerCase();
-        return CARS_DATA.filter(car =>
+        return allCars.filter(car =>
             car.brand.toLowerCase().includes(lowerQuery) ||
             car.model.toLowerCase().includes(lowerQuery) ||
-            car.body_type.toLowerCase().includes(lowerQuery)
+            car.bodyType.toLowerCase().includes(lowerQuery)
         );
     },
 
@@ -66,8 +162,8 @@ export const carsApi = {
      * Get unique body types
      */
     getBodyTypes: async (): Promise<string[]> => {
-        await new Promise(resolve => setTimeout(resolve, 50));
-        const types = new Set(CARS_DATA.map(car => car.body_type));
+        const allCars = await carsApi.getAllCars();
+        const types = new Set(allCars.map(car => car.bodyType));
         return Array.from(types).sort();
     },
 
@@ -75,8 +171,8 @@ export const carsApi = {
      * Get unique fuel types
      */
     getFuelTypes: async (): Promise<string[]> => {
-        await new Promise(resolve => setTimeout(resolve, 50));
-        const types = new Set(CARS_DATA.map(car => car.fuel_type));
+        const allCars = await carsApi.getAllCars();
+        const types = new Set(allCars.map(car => car.fuelType));
         return Array.from(types).sort();
     },
 
@@ -84,9 +180,9 @@ export const carsApi = {
      * Get cars by price range
      */
     getCarsByPriceRange: async (minPrice: number, maxPrice: number): Promise<Car[]> => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        return CARS_DATA.filter(car => {
-            return car.min_price_lakhs >= minPrice && car.max_price_lakhs <= maxPrice;
+        const allCars = await carsApi.getAllCars();
+        return allCars.filter(car => {
+            return car.minPriceLakhs >= minPrice && car.maxPriceLakhs <= maxPrice;
         });
     }
 };
@@ -94,6 +190,7 @@ export const carsApi = {
 // Export individual methods for convenience
 export const {
     getAllCars,
+    getCarById,
     getCarsByBodyType,
     getCarsByFuelType,
     getCarByBrandAndModel,

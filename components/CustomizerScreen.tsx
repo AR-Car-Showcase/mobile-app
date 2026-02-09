@@ -1,10 +1,11 @@
 import React, { Suspense, useRef, useEffect, useState, useMemo } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text, PanResponder } from 'react-native';
-import { Canvas, useThree, useFrame } from '@react-three/fiber/native';
-import { useGLTF, Center } from '@react-three/drei/native';
+import { Canvas, useThree, useFrame, useLoader } from '@react-three/fiber/native';
+import { Center, useGLTF } from '@react-three/drei/native';
+import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import { useCarContext } from '../app/context/CarContext';
 import * as THREE from 'three';
-import { CarModels, DEFAULT_MODEL } from '../constants/CarModels';
+import { CarModels, DEFAULT_MODEL_URL, getRawModelUrl } from '../constants/CarModels';
 
 interface CustomizerScreenProps {
     rotationY: number;
@@ -29,7 +30,7 @@ function SceneController({
     zoomRef,
     viewType,
     autoRotate = false,
-    modelPath = '../assets/models/car.glb'
+    modelPath = DEFAULT_MODEL_URL
 }: {
     targetRotationY: number,
     targetRotationX: number,
@@ -46,13 +47,17 @@ function SceneController({
 
     const modelToLoad = useMemo(() => {
         if (modelPath) {
+            if (modelPath.startsWith('http')) {
+                return modelPath;
+            }
+
             const fileName = modelPath.split('/').pop() || 'car.glb';
             if (CarModels[fileName]) {
-                return CarModels[fileName];
+                return CarModels[fileName].uri;
             }
-            console.warn(`Model ${fileName} not found in CarModels map, using default`);
+            return getRawModelUrl(fileName);
         }
-        return DEFAULT_MODEL;
+        return DEFAULT_MODEL_URL;
     }, [modelPath]);
 
     const { scene } = useGLTF(modelToLoad) as any;
@@ -285,4 +290,8 @@ const styles = StyleSheet.create({
     },
 });
 
-useGLTF.preload(require('../assets/models/car.glb'));
+// Set global decoder path for DRACO
+useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
+
+// Preload the default model
+useGLTF.preload(DEFAULT_MODEL_URL);

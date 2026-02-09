@@ -10,6 +10,7 @@ import {
   ViroQuad,
   ViroMaterials,
 } from '@reactvision/react-viro';
+import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
 
 export default function ARSurfaceScene(props?: any) {
   const [carScale, setCarScale] = useState(0.08);
@@ -92,12 +93,23 @@ export default function ARSurfaceScene(props?: any) {
         rotation={carRotation}
       >
         <Viro3DObject
-          key={selectedColorCode}
-          source={require('../../assets/models/car.glb')}
+          key={`${selectedColorCode}-${props.sceneNavigator?.viroAppProps?.modelPath || 'default'}`}
+          source={(() => {
+            const mvp = props.sceneNavigator?.viroAppProps;
+            const modelPath = mvp?.modelPath || mvp?.model3D;
+
+            if (modelPath && modelPath.startsWith('http')) {
+              return { uri: modelPath };
+            }
+            return DEFAULT_MODEL_OBJ;
+          })()}
           type="GLB"
           resources={[]}
           scale={[1, 1, 1]}
           lightReceivingBitMask={1}
+          onLoadStart={() => console.log('[SURFACE] ⏳ Loading model:', props.sceneNavigator?.viroAppProps?.modelPath || 'default')}
+          onLoadEnd={() => console.log('[SURFACE] ✅ Model loaded successfully')}
+          onError={(event: any) => console.warn('[SURFACE] ❌ Failed to load model:', event.nativeEvent.error)}
         />
 
       </ViroNode>
