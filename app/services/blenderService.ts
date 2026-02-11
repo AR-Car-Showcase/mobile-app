@@ -26,7 +26,7 @@ export async function generateCustomModel(config: CarConfig): Promise<GenerateRe
         }
 
         const payload = {
-            vehicleId: config.vehicleId || 'bugatti_chiron',
+            vehicleId: config.vehicleId,
             materials: config.materials
         };
 
@@ -59,12 +59,23 @@ export async function generateCustomModel(config: CarConfig): Promise<GenerateRe
 }
 
 export function getModelUrl(pathOrFilename: string): string {
+    if (!pathOrFilename) return '';
     if (pathOrFilename.startsWith('http')) return pathOrFilename;
+
+    const root = API_BASE_URL.replace('/api', '');
+
     if (pathOrFilename.startsWith('/')) {
-        const root = API_BASE_URL.replace('/api', '');
         return `${root}${pathOrFilename}`;
     }
-    return `${API_BASE_URL}/models/${pathOrFilename}`;
+
+    // Handle filenames
+    if (pathOrFilename.startsWith('car_')) {
+        // Custom models from blender-service/generated
+        return `${API_BASE_URL}/models/${pathOrFilename}`;
+    }
+
+    // Original models from src/main/resources/static/models
+    return `${API_BASE_URL}/static/models/${pathOrFilename}`;
 }
 
 export async function checkServiceHealth(): Promise<boolean> {

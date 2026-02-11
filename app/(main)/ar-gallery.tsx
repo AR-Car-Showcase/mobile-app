@@ -18,9 +18,11 @@ export default function ARGalleryScreen() {
         const loadModels = async () => {
             setLoading(true);
             try {
-                const allCars = await carsApi.getAllCars(true); // Force refresh to get latest mappings
-                // Show cars that have a 3D model URL OR are in our hardcoded 9-car list
-                const models = allCars.filter(car => car.model3D);
+                const allCars = await carsApi.getAllCars(true);
+                const models = allCars.filter(car =>
+                    car.model3D &&
+                    !car.model3D.endsWith('car.glb')
+                );
 
                 if (models.length === 0) {
                     console.warn('[GALLERY] No cars with 3D models found in API. Check backend mappings.');

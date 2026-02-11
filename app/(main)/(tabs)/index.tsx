@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useRef, useState, useEffect } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, withTiming, useSharedValue, interpolate, Extrapolate } from 'react-native-reanimated';
 import { ARStyles, Colors, CommonStyles } from '../../../constants';
 import ARCustomMarkerWrapper from '../../scenes/ARCustomMarkerWrapper';
@@ -34,6 +34,7 @@ export default function HomeScreen() {
   const sceneRef = useRef<any>(null);
   const [featuredCars, setFeaturedCars] = useState<Car[]>([]);
   const [recommendedCars, setRecommendedCars] = useState<Car[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -55,8 +56,14 @@ export default function HomeScreen() {
     loadCars();
   }, []);
 
-  const loadCars = async () => {
-    const allCars = await getAllCars();
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadCars(true);
+    setRefreshing(false);
+  };
+
+  const loadCars = async (forceRefresh = false) => {
+    const allCars = await getAllCars(forceRefresh);
     setFeaturedCars(allCars.slice(0, 5));
     setRecommendedCars(allCars.slice(5, 8));
   };
@@ -204,6 +211,14 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.accent]}
+            tintColor={colors.accent}
+          />
+        }
       >
         <View style={styles.heroSection}>
           <Image
@@ -236,10 +251,13 @@ export default function HomeScreen() {
                 key={`${car.brand}-${car.model}-${index}`}
                 id={`${car.brand}-${car.model}`}
                 name={`${car.brand.charAt(0).toUpperCase() + car.brand.slice(1)} ${car.model.charAt(0).toUpperCase() + car.model.slice(1)}`}
-                image={car.images.exterior[1] || car.images.exterior[0]}
-                price={car.price_range}
+                image={car.images.exterior[0]}
+                price={car.priceRange}
                 rating={Number(car.rating) || 4.5}
-                onPress={() => router.push(`/details?brand=${car.brand}&model=${car.model}`)}
+                onPress={() => router.push({
+                  pathname: '/details',
+                  params: { id: car.id }
+                })}
                 featured
               />
             ))}
@@ -274,7 +292,10 @@ export default function HomeScreen() {
             <Pressable
               key={`${car.brand}-${car.model}-rec-${index}`}
               style={[styles.recommendedCard, { backgroundColor: colors.surface }]}
-              onPress={() => router.push(`/details?brand=${car.brand}&model=${car.model}`)}
+              onPress={() => router.push({
+                pathname: '/details',
+                params: { id: car.id }
+              })}
             >
               <Image
                 source={{ uri: car.images.exterior[0] }}
@@ -284,8 +305,8 @@ export default function HomeScreen() {
                 <Text style={[styles.recommendedTitle, { color: colors.text }]}>
                   {car.brand.charAt(0).toUpperCase() + car.brand.slice(1)} {car.model.charAt(0).toUpperCase() + car.model.slice(1)}
                 </Text>
-                <Text style={{ color: colors.textSecondary }}>{car.body_type} • {car.fuel_type}</Text>
-                <Text style={{ color: colors.accent, fontWeight: 'bold', marginTop: 4 }}>{car.price_range}</Text>
+                <Text style={{ color: colors.textSecondary }}>{car.bodyType} • {car.fuelType}</Text>
+                <Text style={{ color: colors.accent, fontWeight: 'bold', marginTop: 4 }}>{car.priceRange}</Text>
               </View>
               <View style={[styles.actionIcon, { backgroundColor: colors.surfaceHighlight }]}>
                 <Ionicons name="arrow-forward" size={20} color={colors.text} />

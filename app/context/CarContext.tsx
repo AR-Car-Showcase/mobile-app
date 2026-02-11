@@ -13,6 +13,7 @@ interface CarContextType {
     updateMaterialColor: (materialName: string, colorHex: string) => void;
     updateVehicle: (vehicle: any) => void;
     setShowCustomized: (show: boolean) => void;
+    resetCustomization: () => void;
 }
 
 const defaultConfig: CarConfig = {
@@ -53,8 +54,16 @@ export const CarProvider = ({ children }: { children: ReactNode }) => {
         setConfig(prev => ({ ...prev, showCustomized: show }));
     };
 
+    const resetCustomization = () => {
+        setConfig(prev => ({
+            ...prev,
+            showCustomized: false,
+            materials: defaultConfig.materials
+        }));
+    };
+
     return (
-        <CarContext.Provider value={{ config, updateMaterialColor, updateVehicle, setShowCustomized }}>
+        <CarContext.Provider value={{ config, updateMaterialColor, updateVehicle, setShowCustomized, resetCustomization }}>
             {children}
         </CarContext.Provider>
     );

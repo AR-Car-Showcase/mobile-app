@@ -20,7 +20,9 @@ interface CustomizationDrawerProps {
     isVisible: boolean;
     onClose: () => void;
     onApply: () => void;
+    onSave: () => void;
     isGenerating: boolean;
+    isSaving: boolean;
     activeMaterial: string;
     setActiveMaterial: (name: string) => void;
     onColorChange: (materialName: string, colorHex: string) => void;
@@ -31,7 +33,9 @@ export default function CustomizationDrawer({
     isVisible,
     onClose,
     onApply,
+    onSave,
     isGenerating,
+    isSaving,
     activeMaterial,
     setActiveMaterial,
     onColorChange,
@@ -100,19 +104,35 @@ export default function CustomizationDrawer({
                         currentColors={currentColors}
                     />
 
-                    <TouchableOpacity
-                        style={[
-                            styles.applyButton,
-                            isGenerating && styles.applyButtonDisabled
-                        ]}
-                        onPress={onApply}
-                        disabled={isGenerating}
-                    >
-                        <Ionicons name="color-wand" size={20} color="white" />
-                        <Text style={styles.applyButtonText}>
-                            {isGenerating ? 'Generating...' : 'Apply Build to AR'}
-                        </Text>
-                    </TouchableOpacity>
+                    <View style={styles.buttonContainer}>
+                        <TouchableOpacity
+                            style={[
+                                styles.applyButton,
+                                isGenerating && styles.applyButtonDisabled
+                            ]}
+                            onPress={onApply}
+                            disabled={isGenerating}
+                        >
+                            <Ionicons name="color-wand" size={20} color="white" />
+                            <Text style={styles.applyButtonText}>
+                                {isGenerating ? 'Generating...' : 'Save & Apply to AR'}
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.saveButton,
+                                isSaving && styles.saveButtonDisabled
+                            ]}
+                            onPress={onSave}
+                            disabled={isSaving}
+                        >
+                            <Ionicons name="save-outline" size={20} color="white" />
+                            <Text style={styles.saveButtonText}>
+                                {isSaving ? 'Saving...' : 'Save Build'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </BlurView>
         </Animated.View>
@@ -165,14 +185,49 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
     },
+    applyButtonText: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginLeft: 8,
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 10,
+    },
+    saveButton: {
+        backgroundColor: '#10b981',
+        flexDirection: 'row',
+        height: 54,
+        flex: 1,
+        borderRadius: 15,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#10b981',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    saveButtonDisabled: {
+        backgroundColor: '#064e3b',
+        opacity: 0.6,
+    },
+    saveButtonText: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginLeft: 8,
+    },
     applyButton: {
         backgroundColor: '#3b82f6',
         flexDirection: 'row',
         height: 54,
+        flex: 1,
         borderRadius: 15,
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 10,
         shadowColor: '#3b82f6',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -182,11 +237,5 @@ const styles = StyleSheet.create({
     applyButtonDisabled: {
         backgroundColor: '#1e3a8a',
         opacity: 0.6,
-    },
-    applyButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginLeft: 10,
     },
 });

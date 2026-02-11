@@ -117,6 +117,15 @@ export default function MainLayout() {
                     }}
                 />
                 <Drawer.Screen
+                    name="saved-models"
+                    options={{
+                        title: 'Personal Showroom',
+                        drawerLabel: 'Saved Builds',
+                        drawerIcon: ({ color, size }) => <Ionicons name="star-outline" size={size} color={color} />,
+                        headerShown: false,
+                    }}
+                />
+                <Drawer.Screen
                     name="details"
                     options={{
                         title: 'Car Details',
@@ -186,12 +195,11 @@ const styles = StyleSheet.create({
     themeToggleLabelContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12, // Gap isn't supported in all RN versions, but margins work. 
-        // If gap is issue, use marginLeft on Text
+        gap: 12,
     },
     themeToggleText: {
         fontSize: 14,
         fontWeight: '500',
-        marginLeft: 12, // Fallback for gap
+        marginLeft: 12,
     }
 });

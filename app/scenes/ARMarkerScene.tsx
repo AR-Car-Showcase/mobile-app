@@ -11,6 +11,7 @@ import {
   ViroAnimations,
 } from '@reactvision/react-viro';
 import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
+import { getModelUrl } from '../services/blenderService';
 
 ViroARTrackingTargets.createTargets({
   defaultMarker: {
@@ -95,8 +96,8 @@ export default function ARMarkerScene(props?: any) {
             source={(() => {
               const mvp = props.sceneNavigator?.viroAppProps;
               const modelPath = mvp?.modelPath || mvp?.model3D;
-              if (modelPath && modelPath.startsWith('http')) {
-                return { uri: modelPath };
+              if (modelPath) {
+                return { uri: getModelUrl(modelPath) };
               }
               return DEFAULT_MODEL_OBJ;
             })()}

@@ -9,6 +9,7 @@ import { getCarByBrandAndModel, getCarById } from '../../api/cars';
 import CustomizerScreen from '../../components/CustomizerScreen';
 import CustomizationDrawer from '../../components/CustomizationDrawer';
 import { generateCustomModel, getModelUrl } from '../services/blenderService';
+import { customizationsApi } from '../../api/customizations';
 import { ViroARSceneNavigator } from '@reactvision/react-viro';
 import ARHybridScene from '../scenes/ARHybridScene';
 
@@ -16,7 +17,7 @@ function HybridContent() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const [viewMode, setViewMode] = useState<'3D' | 'AR'>('3D');
-    const { config, updateMaterialColor, setShowCustomized } = useCarContext();
+    const { config, updateMaterialColor, setShowCustomized, resetCustomization } = useCarContext();
     const [activeMaterial, setActiveMaterial] = useState('CAR_BODY_PRIMARY');
     const [showSpecs, setShowSpecs] = useState(false);
     const [backgroundTheme, setBackgroundTheme] = useState<'dark' | 'light'>('dark');
@@ -24,6 +25,7 @@ function HybridContent() {
     const [isPickerVisible, setIsPickerVisible] = useState(false);
     const [autoRotate, setAutoRotate] = useState(false);
     const [car, setCar] = useState<any>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     const [rotationY, setRotationY] = useState(0);
     const [rotationX, setRotationX] = useState(0);
@@ -55,12 +57,33 @@ function HybridContent() {
                 console.log('[HYBRID] Fetched car data from API');
             }
 
+            if (params.customizationId) {
+                console.log('[HYBRID] Loading saved customization:', params.customizationId);
+                if (params.materials) {
+                    try {
+                        const mats = JSON.parse(params.materials as string);
+                        Object.keys(mats).forEach(key => {
+                            updateMaterialColor(key, mats[key]);
+                        });
+                        setShowCustomized(true);
+                    } catch (e) {
+                        console.error('[HYBRID] Failed to parse materials:', e);
+                    }
+                }
+                if (params.modelUrl) {
+                    setGeneratedModelUrl(params.modelUrl as string);
+                }
+            } else {
+                console.log('[HYBRID] Original view - resetting customization');
+                resetCustomization();
+            }
+
             if (params.initialMode) {
                 setViewMode(params.initialMode as '3D' | 'AR');
             }
         };
         loadInitialData();
-    }, [params.carData, params.brand, params.model, params.id, params.initialMode]);
+    }, [params.carData, params.brand, params.model, params.id, params.initialMode, params.customizationId]);
 
     const handleRotateLeft = () => sceneRef.current?.rotateLeft?.();
     const handleRotateRight = () => sceneRef.current?.rotateRight?.();
@@ -81,17 +104,33 @@ function HybridContent() {
         setIsGenerating(true);
         try {
             const result = await generateCustomModel({
+                vehicleId: car?.id,
                 materials: config.materials,
                 showCustomized: true
             } as any);
 
             const modelUrl = getModelUrl(result.filename);
             setGeneratedModelUrl(modelUrl);
+            setShowCustomized(true);
             setViewMode('AR');
-        } catch (error) {
-            Alert.alert('Error', 'Generation service unavailable.');
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Generation service unavailable.');
         } finally {
             setIsGenerating(false);
+        }
+    };
+
+    const handleSaveCustomization = async () => {
+        if (!car?.id) return;
+        setIsSaving(true);
+        try {
+            await customizationsApi.saveCustomization(car.id.toString(), config.materials);
+            Alert.alert('Success', 'Model saved to your showroom!');
+            setIsPickerVisible(false);
+        } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to save customization.');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -247,7 +286,9 @@ function HybridContent() {
                     isVisible={isPickerVisible}
                     onClose={() => setIsPickerVisible(false)}
                     onApply={handleApplyToAR}
+                    onSave={handleSaveCustomization}
                     isGenerating={isGenerating}
+                    isSaving={isSaving}
                     activeMaterial={activeMaterial}
                     setActiveMaterial={setActiveMaterial}
                     onColorChange={updateMaterialColor}

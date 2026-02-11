@@ -11,6 +11,7 @@ import {
     ViroMaterials,
 } from '@reactvision/react-viro';
 import { CarModels, DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
+import { getModelUrl } from '../services/blenderService';
 
 export default function ARHybridScene(props?: any) {
     const [carScale, setCarScale] = useState(0.08);
@@ -98,19 +99,18 @@ export default function ARHybridScene(props?: any) {
                     key={`${showCustomized}-${customModelUrl || JSON.stringify(materials)}-${modelPath}`}
                     source={(() => {
                         if (showCustomized && customModelUrl) {
-                            return { uri: customModelUrl };
+                            return { uri: getModelUrl(customModelUrl) };
                         }
                         if (modelPath) {
-                            // NEW: Support remote URLs from our backend
-                            if (modelPath.startsWith('http')) {
-                                return { uri: modelPath };
+                            if (modelPath.startsWith('http') || modelPath.startsWith('/api/')) {
+                                return { uri: getModelUrl(modelPath) };
                             }
 
                             const fileName = modelPath.split('/').pop() || 'car.glb';
                             if (CarModels[fileName]) {
                                 return CarModels[fileName];
                             }
-                            console.warn(`[AR] Model ${fileName} not found, using default`);
+                            return { uri: getModelUrl(fileName) };
                         }
                         return DEFAULT_MODEL_OBJ;
                     })()}

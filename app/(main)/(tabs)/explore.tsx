@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Dimensions, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import CarCard from '../../../components/CarCard';
@@ -25,21 +25,27 @@ export default function ExploreScreen() {
     const [cars, setCars] = useState<Car[]>([]);
     const [filteredCars, setFilteredCars] = useState<Car[]>([]);
     const [filters, setFilters] = useState<string[]>(['All']);
+    const [refreshing, setRefreshing] = useState(false);
     const navigation = useNavigation<DrawerNavigationProp<any>>();
 
     const scrollHandler = useAnimatedScrollHandler((event) => {
         scrollY.value = event.contentOffset.y;
     });
 
-    // Only the search/filter part uses smart scroll
     const searchBarStyle = useSmartScroll(scrollY, 120, 'up');
 
     useEffect(() => {
         loadCars();
     }, []);
 
-    const loadCars = async () => {
-        const allCars = await getAllCars();
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await loadCars(true);
+        setRefreshing(false);
+    };
+
+    const loadCars = async (forceRefresh = false) => {
+        const allCars = await getAllCars(forceRefresh);
         const bodyTypes = await getBodyTypes();
         setCars(allCars);
         setFilteredCars(allCars);
@@ -53,7 +59,7 @@ export default function ExploreScreen() {
     const filterCars = () => {
         let result = cars;
         if (activeFilter !== 'All') {
-            result = result.filter(car => car.body_type === activeFilter);
+            result = result.filter(car => car.bodyType === activeFilter);
         }
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
@@ -131,12 +137,20 @@ export default function ExploreScreen() {
                 columnWrapperStyle={styles.row}
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[colors.accent]}
+                        tintColor={colors.accent}
+                    />
+                }
                 renderItem={({ item, index }) => (
                     <CarCard
                         id={`${item.brand}-${item.model}`}
                         name={`${item.brand.charAt(0).toUpperCase() + item.brand.slice(1)} ${item.model.charAt(0).toUpperCase() + item.model.slice(1)}`}
-                        image={item.images.exterior[1] || item.images.exterior[0]}
-                        price={item.price_range}
+                        image={item.images.exterior[0]}
+                        price={item.priceRange}
                         rating={Number(item.rating) || 4.5}
                         onPress={() => router.push(`/details?brand=${item.brand}&model=${item.model}`)}
                     />
@@ -166,7 +180,7 @@ const styles = StyleSheet.create({
     },
     searchContainerWrapper: {
         position: 'absolute',
-        top: 100, // Positioned below the fixed header
+        top: 100,
         left: 0,
         right: 0,
         zIndex: 100,

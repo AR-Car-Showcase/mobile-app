@@ -6,6 +6,7 @@ import { GLTFLoader, DRACOLoader } from 'three-stdlib';
 import { useCarContext } from '../app/context/CarContext';
 import * as THREE from 'three';
 import { CarModels, DEFAULT_MODEL_URL, getRawModelUrl } from '../constants/CarModels';
+import { getModelUrl } from '../app/services/blenderService';
 
 interface CustomizerScreenProps {
     rotationY: number;
@@ -47,8 +48,8 @@ function SceneController({
 
     const modelToLoad = useMemo(() => {
         if (modelPath) {
-            if (modelPath.startsWith('http')) {
-                return modelPath;
+            if (modelPath.startsWith('http') || modelPath.startsWith('/api/')) {
+                return getModelUrl(modelPath);
             }
 
             const fileName = modelPath.split('/').pop() || 'car.glb';
@@ -290,8 +291,5 @@ const styles = StyleSheet.create({
     },
 });
 
-// Set global decoder path for DRACO
 useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
-
-// Preload the default model
 useGLTF.preload(DEFAULT_MODEL_URL);
