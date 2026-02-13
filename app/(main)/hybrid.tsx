@@ -91,6 +91,7 @@ function HybridContent() {
     const handleZoomOut = () => sceneRef.current?.zoomOut?.();
 
     const resetPosition = () => {
+        console.log('[HYBRID] Resetting camera position');
         if (viewMode === '3D') {
             setRotationY(0);
             setRotationX(0);

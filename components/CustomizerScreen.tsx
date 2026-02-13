@@ -154,6 +154,30 @@ function SceneController({
         }
     });
 
+    useEffect(() => {
+        return () => {
+            if (scene) {
+                scene.traverse((object: any) => {
+                    if (object.isMesh) {
+                        if (object.geometry) {
+                            object.geometry.dispose();
+                        }
+                        if (object.material) {
+                            if (Array.isArray(object.material)) {
+                                object.material.forEach((mat: any) => mat.dispose());
+                            } else {
+                                object.material.dispose();
+                            }
+                        }
+                    }
+                });
+            }
+            materialsRef.current = [];
+            originalColorsRef.current = {};
+            initializedRef.current = false;
+        };
+    }, [scene]);
+
     return (
         <group ref={groupRef} dispose={null}>
             <Center>
@@ -161,6 +185,7 @@ function SceneController({
                     object={scene}
                     scale={[1.5, 1.5, 1.5]}
                     rotation={[0, Math.PI, 0]}
+                    dispose={null}
                 />
             </Center>
         </group>

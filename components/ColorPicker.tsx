@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
 import ColorPickerWheel from 'react-native-wheel-color-picker';
 
 interface ColorPickerProps {
@@ -25,11 +25,36 @@ export default function ColorPicker({
     setActiveMaterial,
     currentColors
 }: ColorPickerProps) {
+    const [showHexInput, setShowHexInput] = useState(false);
     const selected = currentColors[activeMaterial] || '#FFFFFF';
+    const [localHex, setLocalHex] = useState(selected);
+    const isInternalUpdate = useRef(false);
     const ColorPickerComp = ColorPickerWheel as any;
 
+    useEffect(() => {
+        if (!isInternalUpdate.current) {
+            setLocalHex(selected);
+        }
+        isInternalUpdate.current = false;
+    }, [selected, activeMaterial]);
+
     const onColorChangeWheel = (color: string) => {
+        if (color.toLowerCase() === selected.toLowerCase()) return;
+
+        isInternalUpdate.current = true;
+        setLocalHex(color.toUpperCase());
         onColorChange(activeMaterial, color);
+    };
+
+    const onHexInputChange = (text: string) => {
+        const filtered = text.replace(/[^#A-Fa-f0-9]/g, '').toUpperCase();
+        setLocalHex(filtered);
+
+        const hexRegex = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/;
+        if (hexRegex.test(filtered)) {
+            isInternalUpdate.current = true;
+            onColorChange(activeMaterial, filtered);
+        }
     };
 
     return (
@@ -52,10 +77,36 @@ export default function ColorPicker({
                 ))}
             </View>
 
+            <View style={styles.controlsRow}>
+                <TouchableOpacity
+                    style={[styles.hexToggleButton, showHexInput && styles.activeHexToggleButton]}
+                    onPress={() => setShowHexInput(!showHexInput)}
+                >
+                    <Text style={styles.hexToggleText}>HEX ENTRY</Text>
+                </TouchableOpacity>
+
+                {showHexInput && (
+                    <View style={styles.hexInputContainer}>
+                        <TextInput
+                            style={styles.hexInput}
+                            value={localHex}
+                            onChangeText={onHexInputChange}
+                            placeholder="#FFFFFF"
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            autoCapitalize="characters"
+                            maxLength={7}
+                            autoCorrect={false}
+                            spellCheck={false}
+                            autoComplete="off"
+                        />
+                    </View>
+                )}
+            </View>
+
             <View style={styles.pickerWrapper}>
                 <ColorPickerComp
                     color={selected}
-                    onColorChangeComplete={onColorChangeWheel}
+                    onColorChange={onColorChangeWheel}
                     thumbSize={20}
                     sliderSize={20}
                     noSnap={true}
@@ -71,7 +122,7 @@ const styles = StyleSheet.create({
     container: {
         backgroundColor: 'transparent',
         padding: 0,
-        height: 340,
+        height: 420,
         width: '100%',
     },
     pickerWrapper: {
@@ -104,5 +155,50 @@ const styles = StyleSheet.create({
     },
     activeSlotText: {
         color: '#fff',
+    },
+    controlsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginVertical: 10,
+        gap: 12,
+        zIndex: 10,
+    },
+    hexToggleButton: {
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    activeHexToggleButton: {
+        backgroundColor: '#3b82f6',
+        borderColor: '#60a5fa',
+    },
+    hexToggleText: {
+        color: 'white',
+        fontSize: 11,
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
+    },
+    hexInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        height: 36,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+        width: 100,
+    },
+    hexInput: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: 'bold',
+        flex: 1,
+        textAlign: 'center',
+        padding: 0,
     },
 });

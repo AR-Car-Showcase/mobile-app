@@ -6,14 +6,15 @@ import {
     Dimensions,
     Animated,
     PanResponder,
-    TouchableOpacity
+    TouchableOpacity,
+    ScrollView
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import ColorPicker from './ColorPicker';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const DRAWER_HEIGHT = 500;
+const DRAWER_HEIGHT = 620;
 const CLOSED_OFFSET = DRAWER_HEIGHT - 60;
 
 interface CustomizationDrawerProps {
@@ -96,7 +97,11 @@ export default function CustomizationDrawer({
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.content}>
+                <ScrollView
+                    style={styles.content}
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
                     <ColorPicker
                         onColorChange={onColorChange}
                         activeMaterial={activeMaterial}
@@ -133,7 +138,7 @@ export default function CustomizationDrawer({
                             </Text>
                         </TouchableOpacity>
                     </View>
-                </View>
+                </ScrollView>
             </BlurView>
         </Animated.View>
     );
@@ -184,6 +189,9 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 40,
     },
     applyButtonText: {
         color: 'white',
