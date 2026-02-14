@@ -126,6 +126,15 @@ export default function MainLayout() {
                     }}
                 />
                 <Drawer.Screen
+                    name="compare"
+                    options={{
+                        title: 'Compare Cars',
+                        drawerLabel: 'Compare',
+                        drawerIcon: ({ color, size }) => <Ionicons name="git-compare-outline" size={size} color={color} />,
+                        headerShown: false,
+                    }}
+                />
+                <Drawer.Screen
                     name="details"
                     options={{
                         title: 'Car Details',

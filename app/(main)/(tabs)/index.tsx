@@ -283,6 +283,18 @@ export default function HomeScreen() {
           <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
         </Pressable>
 
+        <Pressable
+          style={[styles.promoCard, { backgroundColor: colors.surface }]}
+          onPress={() => router.push('/compare')}
+        >
+          <MaterialIcons name="compare-arrows" size={40} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.promoTitle, { color: colors.text }]}>Compare Cars</Text>
+            <Text style={{ color: colors.textSecondary }}>Side-by-side comparison of specs and features.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
+        </Pressable>
+
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Recommended for You</Text>
         </View>
