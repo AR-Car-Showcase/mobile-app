@@ -1,37 +1,11 @@
-const createWorkerPolyfill = () => {
-  return class {
-    constructor() { }
-    postMessage() { }
-    terminate() { }
-    addEventListener() { }
-    removeEventListener() { }
-    onmessage = () => { };
-    onerror = () => { };
-  };
-};
+import './polyfills';
 
-if (typeof global.Worker === 'undefined') {
-  // @ts-ignore
-  global.Worker = createWorkerPolyfill();
-}
-if (typeof self !== 'undefined' && typeof (self as any).Worker === 'undefined') {
-  (self as any).Worker = global.Worker;
-}
-if (typeof (global as any).window !== 'undefined' && typeof (global as any).window.Worker === 'undefined') {
-  (global as any).window.Worker = global.Worker;
-} else if (typeof (global as any).window === 'undefined') {
-  // @ts-ignore
-  global.window = global;
-  // @ts-ignore
-  global.window.Worker = global.Worker;
-}
-
-import { Stack, Slot, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 const InitialLayout = () => {
   const { user, isLoading } = useAuth();
@@ -51,14 +25,14 @@ const InitialLayout = () => {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.rootContainer}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
@@ -82,6 +56,17 @@ const RootLayout = () => {
       </AuthProvider>
     </ThemeProvider>
   );
-}
+};
 
 export default RootLayout;
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rootContainer: {
+    flex: 1,
+  },
+});

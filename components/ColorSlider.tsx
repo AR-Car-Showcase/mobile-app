@@ -18,21 +18,21 @@ interface ColorSliderProps {
     initialValue?: number;
 }
 
-export default function ColorSlider({ onColorChange, initialValue = 0 }: ColorSliderProps) {
-    const colors = [
-        { name: 'Red', value: 'redMaterial', code: '#FF0000' },
-        { name: 'Orange', value: 'orangeMaterial', code: '#FFA500' },
-        { name: 'Yellow', value: 'yellowMaterial', code: '#FFFF00' },
-        { name: 'Green', value: 'greenMaterial', code: '#008000' },
-        { name: 'Blue', value: 'blueMaterial', code: '#0000FF' },
-        { name: 'Indigo', value: 'indigoMaterial', code: '#4B0082' },
-        { name: 'Violet', value: 'violetMaterial', code: '#EE82EE' },
-        { name: 'Silver', value: 'silverMaterial', code: '#C0C0C0' },
-        { name: 'White', value: 'whiteMaterial', code: '#FFFFFF' },
-        { name: 'Black', value: 'blackMaterial', code: '#000000' },
-    ];
+const COLOR_PRESETS = [
+    { name: 'Red', value: 'redMaterial', code: '#FF0000' },
+    { name: 'Orange', value: 'orangeMaterial', code: '#FFA500' },
+    { name: 'Yellow', value: 'yellowMaterial', code: '#FFFF00' },
+    { name: 'Green', value: 'greenMaterial', code: '#008000' },
+    { name: 'Blue', value: 'blueMaterial', code: '#0000FF' },
+    { name: 'Indigo', value: 'indigoMaterial', code: '#4B0082' },
+    { name: 'Violet', value: 'violetMaterial', code: '#EE82EE' },
+    { name: 'Silver', value: 'silverMaterial', code: '#C0C0C0' },
+    { name: 'White', value: 'whiteMaterial', code: '#FFFFFF' },
+    { name: 'Black', value: 'blackMaterial', code: '#000000' },
+];
 
-    const pan = useRef(new Animated.Value(initialValue * (SLIDER_WIDTH / (colors.length - 1)))).current;
+export default function ColorSlider({ onColorChange, initialValue = 0 }: ColorSliderProps) {
+    const pan = useRef(new Animated.Value(initialValue * (SLIDER_WIDTH / (COLOR_PRESETS.length - 1)))).current;
     const [selectedIdx, setSelectedIdx] = useState(initialValue);
 
     const panResponder = useRef(
@@ -46,16 +46,16 @@ export default function ColorSlider({ onColorChange, initialValue = 0 }: ColorSl
 
                 pan.setValue(newX);
 
-                const idx = Math.round((newX / SLIDER_WIDTH) * (colors.length - 1));
-                if (idx !== selectedIdx && idx >= 0 && idx < colors.length) {
+                const idx = Math.round((newX / SLIDER_WIDTH) * (COLOR_PRESETS.length - 1));
+                if (idx !== selectedIdx && idx >= 0 && idx < COLOR_PRESETS.length) {
                     setSelectedIdx(idx);
-                    onColorChange(colors[idx].value, colors[idx].code);
+                    onColorChange(COLOR_PRESETS[idx].value, COLOR_PRESETS[idx].code);
                 }
             },
             onPanResponderRelease: () => {
-                const idx = Math.round(((pan as any)._value / SLIDER_WIDTH) * (colors.length - 1));
-                const constrainedIdx = Math.max(0, Math.min(colors.length - 1, idx));
-                const finalX = constrainedIdx * (SLIDER_WIDTH / (colors.length - 1));
+                const idx = Math.round(((pan as any)._value / SLIDER_WIDTH) * (COLOR_PRESETS.length - 1));
+                const constrainedIdx = Math.max(0, Math.min(COLOR_PRESETS.length - 1, idx));
+                const finalX = constrainedIdx * (SLIDER_WIDTH / (COLOR_PRESETS.length - 1));
 
                 Animated.spring(pan, {
                     toValue: finalX,
@@ -68,15 +68,15 @@ export default function ColorSlider({ onColorChange, initialValue = 0 }: ColorSl
 
     return (
         <View style={styles.container}>
-            <Text style={styles.label}>Custom Colors: {colors[selectedIdx].name}</Text>
+            <Text style={styles.label}>Custom Colors: {COLOR_PRESETS[selectedIdx].name}</Text>
             <View style={styles.sliderTrackWrapper}>
                 <View style={styles.sliderTrack}>
-                    {colors.map((c, i) => (
+                    {COLOR_PRESETS.map((preset, index) => (
                         <View
-                            key={i}
+                            key={index}
                             style={[
                                 styles.colorSegment,
-                                { backgroundColor: c.code, flex: 1 }
+                                { backgroundColor: preset.code, flex: 1 }
                             ]}
                         />
                     ))}
@@ -86,7 +86,7 @@ export default function ColorSlider({ onColorChange, initialValue = 0 }: ColorSl
                         styles.pointer,
                         {
                             transform: [{ translateX: pan }],
-                            backgroundColor: colors[selectedIdx].code,
+                            backgroundColor: COLOR_PRESETS[selectedIdx].code,
                         },
                     ]}
                     {...panResponder.panHandlers}

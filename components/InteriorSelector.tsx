@@ -7,15 +7,15 @@ interface InteriorSelectorProps {
   onInteriorSelect: (interior: string) => void;
 }
 
-export default function InteriorSelector({ selectedInterior, onInteriorSelect }: InteriorSelectorProps) {
-  const interiors = ['Leather', 'Suede', 'Fabric', 'Eco', 'Premium'];
-  const Theme = Colors.dark;
+const INTERIOR_OPTIONS = ['Leather', 'Suede', 'Fabric', 'Eco', 'Premium'];
+const Theme = Colors.dark;
 
+export default function InteriorSelector({ selectedInterior, onInteriorSelect }: InteriorSelectorProps) {
   return (
     <View style={[styles.container, { backgroundColor: Theme.surface }]}>
       <Text style={[styles.title, { color: Theme.text }]}>Select Interior</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {interiors.map((interior) => {
+        {INTERIOR_OPTIONS.map((interior) => {
           const isActive = selectedInterior === interior;
           return (
             <Pressable

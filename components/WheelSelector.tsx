@@ -7,15 +7,15 @@ interface WheelSelectorProps {
   onWheelSelect: (wheel: string) => void;
 }
 
-export default function WheelSelector({ selectedWheel, onWheelSelect }: WheelSelectorProps) {
-  const wheels = ['Stock', 'Sport', 'Luxury', 'Off-Road', 'Custom'];
-  const Theme = Colors.dark;
+const WHEEL_OPTIONS = ['Stock', 'Sport', 'Luxury', 'Off-Road', 'Custom'];
+const Theme = Colors.dark;
 
+export default function WheelSelector({ selectedWheel, onWheelSelect }: WheelSelectorProps) {
   return (
     <View style={[styles.container, { backgroundColor: Theme.surface }]}>
       <Text style={[styles.title, { color: Theme.text }]}>Select Wheels</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {wheels.map((wheel) => {
+        {WHEEL_OPTIONS.map((wheel) => {
           const isActive = selectedWheel === wheel;
           return (
             <Pressable

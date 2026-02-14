@@ -1,31 +1,24 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { Car } from '../../types/car';
+
+export type MaterialColorMap = Record<string, string>;
 
 export interface CarConfig {
-    materials: {
-        [key: string]: string;
-    };
-    selectedVehicle: any;
+    materials: MaterialColorMap;
+    selectedVehicle: Car | null;
     showCustomized: boolean;
 }
 
 interface CarContextType {
     config: CarConfig;
     updateMaterialColor: (materialName: string, colorHex: string) => void;
-    updateVehicle: (vehicle: any) => void;
+    updateVehicle: (vehicle: Car) => void;
     setShowCustomized: (show: boolean) => void;
     resetCustomization: () => void;
 }
 
-const defaultConfig: CarConfig = {
-    materials: {
-        'CAR_BODY_PRIMARY': '#FFFFFF',
-        'CAR_BODY_SECONDARY': '#FFFFFF',
-        'CAR_INTERIOR_1': '#FFFFFF',
-        'CAR_INTERIOR_2': '#FFFFFF',
-        'CAR_INTERIOR_3': '#FFFFFF',
-        'CAR_RIM': '#FFFFFF',
-        'CARBON_MATERIAL_1': '#FFFFFF',
-    },
+const DEFAULT_CONFIG: CarConfig = {
+    materials: {},
     selectedVehicle: null,
     showCustomized: false,
 };
@@ -33,7 +26,7 @@ const defaultConfig: CarConfig = {
 const CarContext = createContext<CarContextType | undefined>(undefined);
 
 export const CarProvider = ({ children }: { children: ReactNode }) => {
-    const [config, setConfig] = useState<CarConfig>(defaultConfig);
+    const [config, setConfig] = useState<CarConfig>(DEFAULT_CONFIG);
 
     const updateMaterialColor = (materialName: string, colorHex: string) => {
         setConfig(prev => ({
@@ -46,7 +39,7 @@ export const CarProvider = ({ children }: { children: ReactNode }) => {
         }));
     };
 
-    const updateVehicle = (vehicle: any) => {
+    const updateVehicle = (vehicle: Car) => {
         setConfig(prev => ({ ...prev, selectedVehicle: vehicle }));
     };
 
@@ -58,7 +51,7 @@ export const CarProvider = ({ children }: { children: ReactNode }) => {
         setConfig(prev => ({
             ...prev,
             showCustomized: false,
-            materials: defaultConfig.materials
+            materials: DEFAULT_CONFIG.materials,
         }));
     };
 

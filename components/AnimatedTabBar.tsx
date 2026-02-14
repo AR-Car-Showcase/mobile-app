@@ -9,11 +9,20 @@ import { useSmartScroll } from '../app/hooks/useSmartScroll';
 
 const { width } = Dimensions.get('window');
 
+const TAB_ICONS: Record<string, { focused: string; default: string }> = {
+    index: { focused: 'home', default: 'home-outline' },
+    explore: { focused: 'search', default: 'search-outline' },
+    saved: { focused: 'heart', default: 'heart-outline' },
+    profile: { focused: 'person', default: 'person-outline' },
+};
+
+const DEFAULT_TAB_ICON = 'square';
+
 export default function AnimatedTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const { scrollY, tabBarHeight } = useScrollContext();
     const { colors } = useTheme();
 
-    
+
     const animatedStyle = useSmartScroll(scrollY, tabBarHeight, 'down');
 
     return (
@@ -43,15 +52,10 @@ export default function AnimatedTabBar({ state, descriptors, navigation }: Botto
                         }
                     };
 
-                    const getIconName = (name: string, focused: boolean): any => {
-                        switch (name) {
-                            case 'index': return focused ? 'home' : 'home-outline';
-                            case 'explore': return focused ? 'search' : 'search-outline';
-                            case 'saved': return focused ? 'heart' : 'heart-outline';
-                            case 'profile': return focused ? 'person' : 'person-outline';
-                            default: return 'square';
-                        }
-                    };
+                    const iconConfig = TAB_ICONS[route.name];
+                    const iconName = iconConfig
+                        ? (isFocused ? iconConfig.focused : iconConfig.default)
+                        : DEFAULT_TAB_ICON;
 
                     return (
                         <Pressable
@@ -60,7 +64,7 @@ export default function AnimatedTabBar({ state, descriptors, navigation }: Botto
                             style={styles.tabItem}
                         >
                             <Ionicons
-                                name={getIconName(route.name, isFocused)}
+                                name={iconName as any}
                                 size={24}
                                 color={isFocused ? colors.accent : colors.textSecondary}
                             />

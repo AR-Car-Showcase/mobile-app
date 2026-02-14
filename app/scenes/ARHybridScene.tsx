@@ -5,67 +5,92 @@ import {
     ViroAmbientLight,
     ViroDirectionalLight,
     Viro3DObject,
-    ViroText,
     ViroARPlane,
     ViroQuad,
     ViroMaterials,
 } from '@reactvision/react-viro';
-import { CarModels, DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
-import { getModelUrl } from '../services/blenderService';
+import { resolveModelSourceForAR } from '../../hooks/useModelSource';
+
+type Triplet = [number, number, number];
+
+interface ARSceneViroAppProps {
+    materials?: Record<string, string>;
+    customModelUrl?: string;
+    sceneRef?: React.MutableRefObject<SceneControls | null>;
+    showCustomized?: boolean;
+    modelPath?: string;
+}
+
+interface SceneControls {
+    rotateLeft: () => void;
+    rotateRight: () => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+    reset: () => void;
+}
+
+const GLASS_MATERIAL = {
+    lightingModel: 'PBR' as const,
+    diffuseColor: 'rgba(255, 255, 255, 0.2)',
+    blendMode: 'Alpha' as const,
+    shininess: 2.0,
+    metalness: 0.1,
+    roughness: 0.1,
+};
+
+const GLASS_MATERIAL_NAMES = [
+    'Glass', 'Window', 'Windshield',
+    'GLASS', 'WINDOW', 'WINDSHIELD',
+    'glass', 'window', 'windshield',
+];
+
+const INITIAL_SCALE = 0.08;
+const ROTATION_STEP = 30;
+const SCALE_STEP = 0.05;
+const MAX_SCALE = 0.3;
+const MIN_SCALE = 0.05;
+const RESET_SCALE = 0.1;
 
 export default function ARHybridScene(props?: any) {
-    const [carScale, setCarScale] = useState(0.08);
-    const [carRotation, setCarRotation] = useState<[number, number, number]>([0, 0, 0]);
-    const [anchorPosition, setAnchorPosition] = useState<[number, number, number]>([0, 0, -1]);
+    const [carScale, setCarScale] = useState(INITIAL_SCALE);
+    const [carRotation, setCarRotation] = useState<Triplet>([0, 0, 0]);
+    const [anchorPosition, setAnchorPosition] = useState<Triplet>([0, 0, -1]);
     const isPlacedRef = useRef(false);
 
     const navigator = props.arSceneNavigator || props.sceneNavigator;
-    const viroAppProps = navigator?.viroAppProps;
-    const { materials, customModelUrl, sceneRef, showCustomized, modelPath } = viroAppProps || {};
+    const viroAppProps: ARSceneViroAppProps = navigator?.viroAppProps || {};
+    const { materials, customModelUrl, sceneRef, showCustomized, modelPath } = viroAppProps;
 
     useEffect(() => {
-        const glassMaterial = {
-            lightingModel: 'PBR',
-            diffuseColor: 'rgba(255, 255, 255, 0.2)',
-            blendMode: 'Alpha',
-            shininess: 2.0,
-            metalness: 0.1,
-            roughness: 0.1
-        };
+        const materialDefinitions: Record<string, any> = {};
 
-        const materialDefinitions: { [key: string]: any } = {
-            "Glass": glassMaterial,
-            "Window": glassMaterial,
-            "Windshield": glassMaterial,
-            "GLASS": glassMaterial,
-            "WINDOW": glassMaterial,
-            "WINDSHIELD": glassMaterial,
-            "glass": glassMaterial,
-            "window": glassMaterial,
-            "windshield": glassMaterial,
-        };
+        GLASS_MATERIAL_NAMES.forEach(name => {
+            materialDefinitions[name] = GLASS_MATERIAL;
+        });
 
-        if (showCustomized && !customModelUrl && materials) {
-            Object.keys(materials).forEach(matName => {
-                materialDefinitions[matName] = {
-                    lightingModel: 'PBR',
-                    diffuseColor: materials[matName],
-                    metalness: 0.2,
-                    roughness: 0.5
-                };
+        if (materials) {
+            Object.entries(materials).forEach(([matName, colorValue]) => {
+                if (colorValue) {
+                    materialDefinitions[matName] = {
+                        lightingModel: 'PBR',
+                        diffuseColor: colorValue,
+                        metalness: 0.2,
+                        roughness: 0.5,
+                    };
+                }
             });
         }
 
         ViroMaterials.createMaterials(materialDefinitions);
     }, [materials, customModelUrl, showCustomized]);
 
-    const rotateLeft = useCallback(() => setCarRotation(prev => [prev[0], prev[1] + 30, prev[2]]), []);
-    const rotateRight = useCallback(() => setCarRotation(prev => [prev[0], prev[1] - 30, prev[2]]), []);
-    const zoomIn = useCallback(() => setCarScale(prev => Math.min(0.3, prev + 0.05)), []);
-    const zoomOut = useCallback(() => setCarScale(prev => Math.max(0.05, prev - 0.05)), []);
+    const rotateLeft = useCallback(() => setCarRotation(prev => [prev[0], prev[1] + ROTATION_STEP, prev[2]]), []);
+    const rotateRight = useCallback(() => setCarRotation(prev => [prev[0], prev[1] - ROTATION_STEP, prev[2]]), []);
+    const zoomIn = useCallback(() => setCarScale(prev => Math.min(MAX_SCALE, prev + SCALE_STEP)), []);
+    const zoomOut = useCallback(() => setCarScale(prev => Math.max(MIN_SCALE, prev - SCALE_STEP)), []);
     const reset = useCallback(() => {
         setCarRotation([0, 0, 0]);
-        setCarScale(0.1);
+        setCarScale(RESET_SCALE);
     }, []);
 
     useEffect(() => {
@@ -80,6 +105,12 @@ export default function ARHybridScene(props?: any) {
             setAnchorPosition([anchor.position[0], anchor.position[1] + 0.01, anchor.position[2]]);
         }
     }, []);
+
+    const modelSource = resolveModelSourceForAR(modelPath, showCustomized, customModelUrl);
+    const modelKey = `${showCustomized}-${customModelUrl || JSON.stringify(materials)}-${modelPath}`;
+    const appliedMaterials = showCustomized && !customModelUrl && materials
+        ? Object.keys(materials)
+        : undefined;
 
     return (
         <ViroARScene>
@@ -96,26 +127,10 @@ export default function ARHybridScene(props?: any) {
                 rotation={carRotation}
             >
                 <Viro3DObject
-                    key={`${showCustomized}-${customModelUrl || JSON.stringify(materials)}-${modelPath}`}
-                    source={(() => {
-                        if (showCustomized && customModelUrl) {
-                            return { uri: getModelUrl(customModelUrl) };
-                        }
-                        if (modelPath) {
-                            if (modelPath.startsWith('http') || modelPath.startsWith('/api/')) {
-                                return { uri: getModelUrl(modelPath) };
-                            }
-
-                            const fileName = modelPath.split('/').pop() || 'car.glb';
-                            if (CarModels[fileName]) {
-                                return CarModels[fileName];
-                            }
-                            return { uri: getModelUrl(fileName) };
-                        }
-                        return DEFAULT_MODEL_OBJ;
-                    })()}
+                    key={modelKey}
+                    source={modelSource}
                     type="GLB"
-                    materials={showCustomized && !customModelUrl && materials ? Object.keys(materials) : undefined}
+                    materials={appliedMaterials}
                     resources={[]}
                     scale={[1, 1, 1]}
                     lightReceivingBitMask={1}
