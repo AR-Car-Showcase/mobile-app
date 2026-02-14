@@ -1,9 +1,10 @@
 import { Car, CarImages } from '../types/car';
 import { CarData, CarImage } from '../types/api';
+import { ApiErrorCode, isApiError } from '../types/errors';
 import { apiClient, BASE_URL } from './client';
 
 const adaptBackendCarToFrontend = (carData: CarData): Car => {
-    const specs: Record<string, any> = {};
+    const specs: Record<string, Record<string, string>> = {};
     carData.details.forEach(detail => {
         if (!specs[detail.category]) {
             specs[detail.category] = {};
@@ -79,13 +80,7 @@ const adaptBackendCarToFrontend = (carData: CarData): Car => {
 
 let cachedCars: Car[] | null = null;
 
-/**
- * Backend API integration for car data
- */
 export const carsApi = {
-    /**
-     * Get all cars
-     */
     getAllCars: async (forceRefresh = false): Promise<Car[]> => {
         if (!forceRefresh && cachedCars) {
             return cachedCars;
@@ -97,46 +92,37 @@ export const carsApi = {
             cachedCars = adapted;
             return adapted;
         } catch (error) {
-            console.error('[API] Failed to fetch cars:', error);
-            return cachedCars || [];
+            if (isApiError(error)) {
+                console.error(`[API] Failed to fetch cars (${error.code}):`, error.userMessage);
+            }
+            if (cachedCars) return cachedCars;
+            throw error;
         }
     },
 
-    /**
-     * Get cars by body type (SUV, Sedan, Hatchback, etc.)
-     */
     getCarsByBodyType: async (bodyType: string): Promise<Car[]> => {
         const data = await apiClient.get<CarData[]>(`/cars/body-type/${bodyType}`);
         return data.map(adaptBackendCarToFrontend);
     },
 
-    /**
-     * Get cars by fuel type
-     */
     getCarsByFuelType: async (fuelType: string): Promise<Car[]> => {
         const data = await apiClient.get<CarData[]>(`/cars/fuel-type/${fuelType}`);
         return data.map(adaptBackendCarToFrontend);
     },
 
-    /**
-     * Get a single car by ID
-     */
     getCarById: async (id: string | number): Promise<Car | null> => {
         try {
             const data = await apiClient.get<CarData>(`/cars/car/${id}`);
             return adaptBackendCarToFrontend(data);
         } catch (error) {
-            console.error(`[API] Failed to fetch car with id ${id}:`, error);
-            return null;
+            if (isApiError(error) && error.code === ApiErrorCode.NOT_FOUND) {
+                return null;
+            }
+            throw error;
         }
     },
 
-    /**
-     * Get a single car by brand and model
-     */
     getCarByBrandAndModel: async (brand: string, model: string, forceRefresh = false): Promise<Car | null> => {
-        // Optimization: In a real app, we should have a specific endpoint for this
-        // For now, we fetch all and find, or we could add a backend endpoint
         const allCars = await carsApi.getAllCars(forceRefresh);
         const found = allCars.find(car =>
             car.brand.toLowerCase() === brand.toLowerCase() &&
@@ -145,9 +131,6 @@ export const carsApi = {
         return found || null;
     },
 
-    /**
-     * Search cars by query (searches brand, model, body_type)
-     */
     searchCars: async (query: string): Promise<Car[]> => {
         const allCars = await carsApi.getAllCars();
         const lowerQuery = query.toLowerCase();
@@ -158,27 +141,18 @@ export const carsApi = {
         );
     },
 
-    /**
-     * Get unique body types
-     */
     getBodyTypes: async (): Promise<string[]> => {
         const allCars = await carsApi.getAllCars();
         const types = new Set(allCars.map(car => car.bodyType));
         return Array.from(types).sort();
     },
 
-    /**
-     * Get unique fuel types
-     */
     getFuelTypes: async (): Promise<string[]> => {
         const allCars = await carsApi.getAllCars();
         const types = new Set(allCars.map(car => car.fuelType));
         return Array.from(types).sort();
     },
 
-    /**
-     * Get cars by price range
-     */
     getCarsByPriceRange: async (minPrice: number, maxPrice: number): Promise<Car[]> => {
         const allCars = await carsApi.getAllCars();
         return allCars.filter(car => {
@@ -187,7 +161,6 @@ export const carsApi = {
     }
 };
 
-// Export individual methods for convenience
 export const {
     getAllCars,
     getCarById,

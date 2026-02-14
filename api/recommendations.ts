@@ -1,20 +1,19 @@
 import { apiClient } from './client';
-import { Car, carApiMock } from './cars';
+import { Car } from '../types/car';
+import { carsApi } from './cars';
 
-export const recommendationApiMock = {
+export const recommendationsApi = {
     getGuestRecommendations: async (country: string = 'US'): Promise<Car[]> => {
-        const allCars = await carApiMock.getAllCars();
-        // Simulate recommendation logic based on simple rules
+        const allCars = await carsApi.getAllCars();
         return apiClient.get('/recommendations/guest', { country }).then(() =>
-            allCars.filter(c => c.featured || c.category === 'SUV').slice(0, 3)
+            allCars.filter((c: Car) => c.bodyType === 'SUV').slice(0, 3)
         );
     },
 
     getUserRecommendations: async (): Promise<Car[]> => {
-        const allCars = await carApiMock.getAllCars();
-        // Simulate personalized ML recommendations
+        const allCars = await carsApi.getAllCars();
         return apiClient.get('/recommendations/user').then(() =>
-            allCars.slice(2, 5) // Return different set
+            allCars.slice(2, 5)
         );
     },
 };

@@ -1,67 +1,118 @@
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ApiError, ApiErrorCode, getErrorCode, createNetworkError } from '../types/errors';
 
 const getBaseUrl = () => Constants.expoConfig?.extra?.API_URL;
 
 export const BASE_URL = getBaseUrl();
 
+const DEFAULT_TIMEOUT_MS = 15000;
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+    const token = await AsyncStorage.getItem('token');
+    return {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+}
+
+function buildUrl(endpoint: string, params?: Record<string, string | number | boolean>): string {
+    let url = `${BASE_URL}${endpoint}`;
+    if (params) {
+        const queryString = Object.entries(params)
+            .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+            .join('&');
+        url += `?${queryString}`;
+    }
+    return url;
+}
+
+async function parseErrorBody(response: Response): Promise<string> {
+    try {
+        const body = await response.json();
+        return body?.message || body?.error || response.statusText;
+    } catch {
+        try {
+            return await response.text();
+        } catch {
+            return response.statusText;
+        }
+    }
+}
+
+async function performRequest<T>(
+    url: string,
+    options: RequestInit,
+    timeoutMs: number = DEFAULT_TIMEOUT_MS
+): Promise<T> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+        });
+
+        if (!response.ok) {
+            const errorBody = await parseErrorBody(response);
+            const code = getErrorCode(response.status);
+            throw new ApiError(code, {
+                statusCode: response.status,
+                message: `${response.status} ${errorBody}`,
+            });
+        }
+
+        return await response.json();
+    } catch (error) {
+        if (error instanceof ApiError) throw error;
+
+        if (error instanceof DOMException && error.name === 'AbortError') {
+            throw new ApiError(ApiErrorCode.TIMEOUT, {
+                message: `Request to ${url} timed out after ${timeoutMs}ms`,
+            });
+        }
+
+        throw createNetworkError(error);
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
 export const apiClient = {
     get: async <T>(endpoint: string, params?: Record<string, any>): Promise<T> => {
-        let url = `${BASE_URL}${endpoint}`;
-        const token = await AsyncStorage.getItem('token');
-
-        if (params) {
-            const queryString = Object.keys(params)
-                .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-                .join('&');
-            url += `?${queryString}`;
-        }
-
+        const url = buildUrl(endpoint, params);
+        const headers = await getAuthHeaders();
         console.log(`[GET] ${url}`);
-
-        try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status} ${response.statusText}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('[API] GET request failed:', error);
-            throw error;
-        }
+        return performRequest<T>(url, { method: 'GET', headers });
     },
 
-    post: async <T>(endpoint: string, data?: any): Promise<T> => {
-        const url = `${BASE_URL}${endpoint}`;
-        const token = await AsyncStorage.getItem('token');
-        console.log(`[POST] ${url}`, data);
+    post: async <T>(endpoint: string, data?: unknown): Promise<T> => {
+        const url = buildUrl(endpoint);
+        const headers = await getAuthHeaders();
+        console.log(`[POST] ${url}`);
+        return performRequest<T>(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+        });
+    },
 
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify(data),
-            });
+    patch: async <T>(endpoint: string, data?: unknown): Promise<T> => {
+        const url = buildUrl(endpoint);
+        const headers = await getAuthHeaders();
+        console.log(`[PATCH] ${url}`);
+        return performRequest<T>(url, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(data),
+        });
+    },
 
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status} ${response.statusText}`);
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error('[API] POST request failed:', error);
-            throw error;
-        }
+    delete: async <T>(endpoint: string): Promise<T> => {
+        const url = buildUrl(endpoint);
+        const headers = await getAuthHeaders();
+        console.log(`[DELETE] ${url}`);
+        return performRequest<T>(url, { method: 'DELETE', headers });
     },
 };

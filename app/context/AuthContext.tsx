@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useSegments } from 'expo-router';
 import Constants from 'expo-constants';
+import { ApiError, ApiErrorCode, createNetworkError } from '../../types/errors';
 
 const safeStorage = {
     getItem: async (key: string) => {
@@ -62,59 +63,71 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 setUser(JSON.parse(storedUser));
             }
         } catch (error) {
-            console.error(error);
+            console.error('[Auth] Failed to load stored data:', error);
         } finally {
             setIsLoading(false);
         }
     };
 
     const signIn = async (username: string, password: string) => {
+        let response: Response;
         try {
-            const response = await fetch(`${API_URL}/signin`, {
+            response = await fetch(`${API_URL}/signin`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
             });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                const userObj: User = {
-                    username: data.username,
-                    email: data.email,
-                    roles: data.roles,
-                    phoneNumber: data.phoneNumber,
-                    profilePic: data.profilePic
-                };
-                setToken(data.token);
-                setUser(userObj);
-                await safeStorage.setItem('token', data.token);
-                await safeStorage.setItem('user', JSON.stringify(userObj));
-            } else {
-                throw new Error(data.message || 'Login failed');
-            }
         } catch (error) {
-            console.error(error);
-            throw error;
+            throw createNetworkError(error);
         }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ApiError(ApiErrorCode.UNAUTHORIZED, {
+                    statusCode: 401,
+                    userMessage: data.message || 'Invalid username or password.',
+                });
+            }
+            throw new ApiError(ApiErrorCode.SERVER_ERROR, {
+                statusCode: response.status,
+                message: data.message || 'Login failed',
+            });
+        }
+
+        const userObj: User = {
+            username: data.username,
+            email: data.email,
+            roles: data.roles,
+            phoneNumber: data.phoneNumber,
+            profilePic: data.profilePic
+        };
+        setToken(data.token);
+        setUser(userObj);
+        await safeStorage.setItem('token', data.token);
+        await safeStorage.setItem('user', JSON.stringify(userObj));
     };
 
     const signUp = async (username: string, email: string, password: string, phoneNumber?: string, profilePic?: string) => {
+        let response: Response;
         try {
-            const response = await fetch(`${API_URL}/signup`, {
+            response = await fetch(`${API_URL}/signup`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, email, password, phoneNumber, profilePic, role: ['user'] }),
             });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Signup failed');
-            }
         } catch (error) {
-            console.error(error);
-            throw error;
+            throw createNetworkError(error);
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new ApiError(ApiErrorCode.SERVER_ERROR, {
+                statusCode: response.status,
+                userMessage: data.message || 'Signup failed. Please try again.',
+            });
         }
     };
 
