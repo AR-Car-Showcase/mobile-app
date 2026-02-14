@@ -106,6 +106,32 @@ export default function ARHybridScene(props?: any) {
         }
     }, []);
 
+    const currentRotationRef = useRef<number>(0);
+    const currentScaleRef = useRef<number>(INITIAL_SCALE);
+
+    const onRotate = useCallback((rotateState: any, rotationFactor: number, source: any) => {
+        if (rotateState === 1) {
+            currentRotationRef.current = carRotation[1];
+        } else if (rotateState === 2) {
+            setCarRotation(prev => [prev[0], currentRotationRef.current - rotationFactor, prev[2]]);
+        }
+    }, [carRotation]);
+
+    const onPinch = useCallback((pinchState: any, scaleFactor: number, source: any) => {
+        if (pinchState === 1) {
+            currentScaleRef.current = carScale;
+        } else if (pinchState === 2) {
+            setCarScale(prev => {
+                const newScale = currentScaleRef.current * scaleFactor;
+                return Math.min(MAX_SCALE, Math.max(MIN_SCALE, newScale));
+            });
+        }
+    }, [carScale]);
+
+    const onDrag = useCallback((dragToPos: any, source: any) => {
+        setAnchorPosition(dragToPos);
+    }, []);
+
     const modelSource = resolveModelSourceForAR(modelPath, showCustomized, customModelUrl);
     const modelKey = `${showCustomized}-${customModelUrl || JSON.stringify(materials)}-${modelPath}`;
     const appliedMaterials = showCustomized && !customModelUrl && materials
@@ -125,6 +151,10 @@ export default function ARHybridScene(props?: any) {
                 position={anchorPosition}
                 scale={[carScale, carScale, carScale]}
                 rotation={carRotation}
+                onDrag={onDrag}
+                dragType="FixedToWorld"
+                onRotate={onRotate}
+                onPinch={onPinch}
             >
                 <Viro3DObject
                     key={modelKey}
