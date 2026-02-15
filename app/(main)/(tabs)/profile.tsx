@@ -4,7 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useScrollContext } from '../../context/ScrollContext';
-import { useNavigation } from 'expo-router';
+import { useNavigation, router } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import Animated, {
     useAnimatedScrollHandler,
@@ -85,6 +85,15 @@ export default function ProfileScreen() {
                 </View>
 
                 <View style={styles.menuContainer}>
+                    <TouchableOpacity
+                        style={[styles.menuItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        onPress={() => router.push('/preferences')}
+                    >
+                        <Ionicons name="options-outline" size={24} color={colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>Preferences</Text>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={[styles.menuItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <Ionicons name="settings-outline" size={24} color={colors.text} />
                         <Text style={[styles.menuText, { color: colors.text }]}>Settings</Text>

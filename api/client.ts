@@ -67,7 +67,7 @@ async function performRequest<T>(
     } catch (error) {
         if (error instanceof ApiError) throw error;
 
-        if (error instanceof DOMException && error.name === 'AbortError') {
+        if (error instanceof Error && error.name === 'AbortError') {
             throw new ApiError(ApiErrorCode.TIMEOUT, {
                 message: `Request to ${url} timed out after ${timeoutMs}ms`,
             });
@@ -83,16 +83,27 @@ export const apiClient = {
     get: async <T>(endpoint: string, params?: Record<string, any>): Promise<T> => {
         const url = buildUrl(endpoint, params);
         const headers = await getAuthHeaders();
-        console.log(`[GET] ${url}`);
+
         return performRequest<T>(url, { method: 'GET', headers });
     },
 
     post: async <T>(endpoint: string, data?: unknown): Promise<T> => {
         const url = buildUrl(endpoint);
         const headers = await getAuthHeaders();
-        console.log(`[POST] ${url}`);
+
         return performRequest<T>(url, {
             method: 'POST',
+            headers,
+            body: JSON.stringify(data),
+        });
+    },
+
+    put: async <T>(endpoint: string, data?: unknown): Promise<T> => {
+        const url = buildUrl(endpoint);
+        const headers = await getAuthHeaders();
+
+        return performRequest<T>(url, {
+            method: 'PUT',
             headers,
             body: JSON.stringify(data),
         });
@@ -101,7 +112,7 @@ export const apiClient = {
     patch: async <T>(endpoint: string, data?: unknown): Promise<T> => {
         const url = buildUrl(endpoint);
         const headers = await getAuthHeaders();
-        console.log(`[PATCH] ${url}`);
+
         return performRequest<T>(url, {
             method: 'PATCH',
             headers,
@@ -112,7 +123,7 @@ export const apiClient = {
     delete: async <T>(endpoint: string): Promise<T> => {
         const url = buildUrl(endpoint);
         const headers = await getAuthHeaders();
-        console.log(`[DELETE] ${url}`);
+
         return performRequest<T>(url, { method: 'DELETE', headers });
     },
 };

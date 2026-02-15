@@ -41,7 +41,7 @@ export default function ARGalleryScreen() {
     const handleModelPress = (car: Car) => {
         setSelectedModel(String(car.id));
         router.push({
-            pathname: '/(main)/hybrid',
+            pathname: '/hybrid',
             params: {
                 id: car.id,
                 brand: car.brand,

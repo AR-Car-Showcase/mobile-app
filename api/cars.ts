@@ -3,7 +3,7 @@ import { CarData, CarImage } from '../types/api';
 import { ApiErrorCode, isApiError } from '../types/errors';
 import { apiClient, BASE_URL } from './client';
 
-const adaptBackendCarToFrontend = (carData: CarData): Car => {
+export const transformCarData = (carData: CarData): Car => {
     const specs: Record<string, Record<string, string>> = {};
     carData.details.forEach(detail => {
         if (!specs[detail.category]) {
@@ -88,7 +88,7 @@ export const carsApi = {
 
         try {
             const data = await apiClient.get<CarData[]>('/cars/allcars');
-            const adapted = data.map(adaptBackendCarToFrontend);
+            const adapted = data.map(transformCarData);
             cachedCars = adapted;
             return adapted;
         } catch (error) {
@@ -102,18 +102,18 @@ export const carsApi = {
 
     getCarsByBodyType: async (bodyType: string): Promise<Car[]> => {
         const data = await apiClient.get<CarData[]>(`/cars/body-type/${bodyType}`);
-        return data.map(adaptBackendCarToFrontend);
+        return data.map(transformCarData);
     },
 
     getCarsByFuelType: async (fuelType: string): Promise<Car[]> => {
         const data = await apiClient.get<CarData[]>(`/cars/fuel-type/${fuelType}`);
-        return data.map(adaptBackendCarToFrontend);
+        return data.map(transformCarData);
     },
 
     getCarById: async (id: string | number): Promise<Car | null> => {
         try {
             const data = await apiClient.get<CarData>(`/cars/car/${id}`);
-            return adaptBackendCarToFrontend(data);
+            return transformCarData(data);
         } catch (error) {
             if (isApiError(error) && error.code === ApiErrorCode.NOT_FOUND) {
                 return null;

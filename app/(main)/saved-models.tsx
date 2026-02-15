@@ -40,7 +40,7 @@ export default function SavedModelsScreen() {
         const carData = await carsApi.getCarById(item.vehicleId);
 
         router.push({
-            pathname: '/(main)/hybrid',
+            pathname: '/hybrid',
             params: {
                 id: item.vehicleId,
                 brand: item.carBrand,
@@ -119,7 +119,7 @@ export default function SavedModelsScreen() {
                     <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No saved models yet</Text>
                     <TouchableOpacity
                         style={[styles.browseButton, { backgroundColor: colors.accent }]}
-                        onPress={() => router.push('/(main)/(tabs)')}
+                        onPress={() => router.push('/')}
                     >
                         <Text style={styles.browseButtonText}>Browse Cars</Text>
                     </TouchableOpacity>

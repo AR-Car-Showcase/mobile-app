@@ -27,6 +27,12 @@ interface User {
     roles: string[];
     phoneNumber?: string;
     profilePic?: string;
+    favBrands?: string[];
+    preferredBodyTypes?: string[];
+    preferredFuelTypes?: string[];
+    preferredTransmissions?: string[];
+    drivingCondition?: string;
+    maxBudget?: number | null;
 }
 
 interface AuthContextType {
@@ -37,6 +43,7 @@ interface AuthContextType {
     signUp: (username: string, email: string, password: string, phoneNumber?: string, profilePic?: string) => Promise<void>;
     signOut: () => Promise<void>;
     token: string | null;
+    updateUser: (updatedUser: User) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -101,7 +108,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             email: data.email,
             roles: data.roles,
             phoneNumber: data.phoneNumber,
-            profilePic: data.profilePic
+            profilePic: data.profilePic,
+            favBrands: data.favBrands,
+            preferredBodyTypes: data.preferredBodyTypes,
+            preferredFuelTypes: data.preferredFuelTypes,
+            preferredTransmissions: data.preferredTransmissions,
+            drivingCondition: data.drivingCondition,
+            maxBudget: data.maxBudget
         };
         setToken(data.token);
         setUser(userObj);
@@ -138,6 +151,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await safeStorage.removeItem('user');
     };
 
+    const updateUser = async (updatedUser: User) => {
+        setUser(updatedUser);
+        await safeStorage.setItem('user', JSON.stringify(updatedUser));
+    };
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -146,7 +164,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             signIn,
             signUp,
             signOut,
-            token
+            token,
+            updateUser
         }}>
             {children}
         </AuthContext.Provider>
