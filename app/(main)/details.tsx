@@ -12,6 +12,7 @@ import Animated, {
 import { CommonStyles } from '../../constants';
 import { useTheme } from '../context/ThemeContext';
 import { getCarByBrandAndModel, getCarById } from '../../api/cars';
+import { recommendationsApi } from '../../api/recommendations';
 import { Car } from '../../types/car';
 import { useScrollContext } from '../context/ScrollContext';
 
@@ -36,6 +37,16 @@ const MemoizedThumbnail = memo(({ item, isSelected, onPress, colors }: { item: s
     );
 });
 
+const RelatedCarCard = memo(({ item, onPress, colors }: { item: Car, onPress: () => void, colors: any }) => (
+    <Pressable style={[styles.relatedCarCard, { backgroundColor: colors.surface }]} onPress={onPress}>
+        <Image source={{ uri: item.images.exterior[0] }} style={styles.relatedCarImage} resizeMode="cover" />
+        <View style={styles.relatedCarInfo}>
+            <Text style={[styles.relatedCarName, { color: colors.text }]} numberOfLines={1}>{item.brand} {item.model}</Text>
+            <Text style={[styles.relatedCarPrice, { color: colors.accent }]}>{item.priceRange}</Text>
+        </View>
+    </Pressable>
+));
+
 const SPEC_CATEGORIES: Record<string, string[]> = {
     "Engine & Transmission": ["Engine Type", "Displacement", "Engine Displacement", "Max Power", "Max Torque", "No. of Cylinders", "Valves Per Cylinder", "Turbo Charger", "Transmission Type", "Gearbox", "Drive Type"],
     "Fuel & Performance": ["Fuel Type", "Fuel Tank Capacity", "Petrol Fuel Tank Capacity", "Diesel Fuel Tank Capacity", "Mileage", "City Mileage", "Petrol Highway Mileage", "Diesel Highway Mileage", "Top Speed", "Acceleration", "0-100kmph", "Emission Norm Compliance"],
@@ -58,6 +69,7 @@ export default function VehicleDetailsScreen() {
     const { colors } = useTheme();
     const { scrollY } = useScrollContext();
     const [car, setCar] = useState<Car | null>(null);
+    const [relatedCars, setRelatedCars] = useState<Car[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -115,6 +127,7 @@ export default function VehicleDetailsScreen() {
             const carData = await getCarById(params.id as string);
             if (carData) {
                 setCar(carData);
+                fetchRecommendations(carData.id);
             }
             setLoading(false);
             return;
@@ -127,9 +140,23 @@ export default function VehicleDetailsScreen() {
             const carData = await getCarByBrandAndModel(brand, model, forceRefresh);
             if (carData) {
                 setCar(carData);
+                fetchRecommendations(carData.id);
             }
         }
         setLoading(false);
+    };
+
+    const fetchRecommendations = async (carId: number | string) => {
+        try {
+            const numId = typeof carId === 'string' ? parseInt(carId) : carId;
+            if (!isNaN(numId)) {
+                recommendationsApi.trackInteraction(numId, 'view');
+                const recs = await recommendationsApi.getSimilarCars(numId);
+                setRelatedCars(recs);
+            }
+        } catch (e) {
+            console.error("Failed to load recommendations", e);
+        }
     };
 
     const mergedSpecs = React.useMemo(() => {
@@ -269,6 +296,28 @@ export default function VehicleDetailsScreen() {
                 </CollapsibleSection>
             );
         });
+    };
+
+    const renderRelatedCars = () => {
+        if (relatedCars.length === 0) return null;
+        return (
+            <View style={[styles.section, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>You Might Also Like</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                    {relatedCars.map((item, index) => (
+                        <RelatedCarCard
+                            key={`${item.id}-${index}`}
+                            item={item}
+                            colors={colors}
+                            onPress={() => router.push({
+                                pathname: '/details',
+                                params: { id: item.id }
+                            })}
+                        />
+                    ))}
+                </ScrollView>
+            </View>
+        );
     };
 
     return (
@@ -420,7 +469,7 @@ export default function VehicleDetailsScreen() {
                     <Pressable
                         style={[styles.actionButton, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.accent }]}
                         onPress={() => router.push({
-                            pathname: '/(main)/hybrid',
+                            pathname: '/hybrid',
                             params: {
                                 id: car.id,
                                 brand: car.brand,
@@ -437,7 +486,7 @@ export default function VehicleDetailsScreen() {
                     <Pressable
                         style={[styles.actionButton, { backgroundColor: colors.accent }]}
                         onPress={() => router.push({
-                            pathname: '/(main)/hybrid',
+                            pathname: '/hybrid',
                             params: {
                                 id: car.id,
                                 brand: car.brand,
@@ -465,6 +514,8 @@ export default function VehicleDetailsScreen() {
                     </View>
                     {renderCategorizedSpecs()}
                 </View>
+
+                {renderRelatedCars()}
             </Animated.ScrollView>
         </View >
     );
@@ -758,5 +809,31 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '500',
         textAlign: 'center',
+    },
+
+    relatedCarCard: {
+        width: 160,
+        borderRadius: 12,
+        overflow: 'hidden',
+        paddingBottom: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+    },
+    relatedCarImage: {
+        width: '100%',
+        height: 100,
+    },
+    relatedCarInfo: {
+        padding: 8,
+    },
+    relatedCarName: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 4,
+        textTransform: 'capitalize',
+    },
+    relatedCarPrice: {
+        fontSize: 12,
+        fontWeight: '600',
     },
 });

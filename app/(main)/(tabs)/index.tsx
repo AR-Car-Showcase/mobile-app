@@ -16,13 +16,14 @@ import { useScrollContext } from '../../context/ScrollContext';
 import { useTheme } from '../../context/ThemeContext';
 import CarCard from '../../../components/CarCard';
 import { getAllCars, getCarsByBodyType } from '../../../api/cars';
+import { recommendationsApi } from '../../../api/recommendations';
 import { Car } from '../../../types/car';
 import { useSmartScroll } from '../../hooks/useSmartScroll';
 
 type ARMode = 'surface' | 'marker' | 'custom';
 
 export default function HomeScreen() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { colors } = useTheme();
   const { scrollY } = useScrollContext();
   const [loginModalVisible, setLoginModalVisible] = useState(false);
@@ -49,9 +50,6 @@ export default function HomeScreen() {
   });
 
 
-
-
-
   useEffect(() => {
     loadCars();
   }, []);
@@ -63,9 +61,40 @@ export default function HomeScreen() {
   };
 
   const loadCars = async (forceRefresh = false) => {
-    const allCars = await getAllCars(forceRefresh);
-    setFeaturedCars(allCars.slice(0, 5));
-    setRecommendedCars(allCars.slice(5, 8));
+    try {
+      const allCars = await getAllCars(forceRefresh);
+
+      const featured = [...allCars]
+        .sort((a, b) => Number(b.rating) - Number(a.rating))
+        .slice(0, 5);
+      setFeaturedCars(featured);
+
+      if (isAuthenticated && user && (
+        (user.favBrands && user.favBrands.length > 0) ||
+        (user.preferredBodyTypes && user.preferredBodyTypes.length > 0) ||
+        (user.preferredFuelTypes && user.preferredFuelTypes.length > 0) ||
+        (user.preferredTransmissions && user.preferredTransmissions.length > 0) ||
+        (user.maxBudget && user.maxBudget > 0)
+      )) {
+
+
+        try {
+          const recs = await recommendationsApi.getUserRecommendations();
+          if (recs && recs.length > 0) {
+            setRecommendedCars(recs);
+          } else {
+            setRecommendedCars(allCars.slice(0, 5).sort(() => 0.5 - Math.random()));
+          }
+        } catch (e) {
+          console.error("[Home] Recommendation fetch failed, using fallback", e);
+          setRecommendedCars(allCars.slice(0, 5).sort(() => 0.5 - Math.random()));
+        }
+      } else {
+        setRecommendedCars(allCars.slice(0, 5).sort(() => 0.5 - Math.random()));
+      }
+    } catch (e) {
+      console.error("Failed to load home data", e);
+    }
   };
 
   const handleModeSelect = (mode: ARMode) => {
@@ -304,10 +333,13 @@ export default function HomeScreen() {
             <Pressable
               key={`${car.brand}-${car.model}-rec-${index}`}
               style={[styles.recommendedCard, { backgroundColor: colors.surface }]}
-              onPress={() => router.push({
-                pathname: '/details',
-                params: { id: car.id }
-              })}
+              onPress={() => {
+                recommendationsApi.trackInteraction(car.id, 'click');
+                router.push({
+                  pathname: '/details',
+                  params: { id: car.id }
+                });
+              }}
             >
               <Image
                 source={{ uri: car.images.exterior[0] }}
