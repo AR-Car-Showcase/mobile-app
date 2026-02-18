@@ -211,7 +211,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 12,
         gap: 12,
     },
     searchBar: {
@@ -237,7 +236,7 @@ const styles = StyleSheet.create({
     },
     filtersList: {
         paddingHorizontal: 16,
-        paddingBottom: 16,
+        paddingVertical: 10,
         gap: 8,
     },
     filterChip: {

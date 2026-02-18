@@ -384,13 +384,10 @@ export default function VehicleDetailsScreen() {
                             }
                         }}
                         renderItem={({ item }) => (
-                            <ExpoImage
+                            <Image
                                 source={{ uri: item }}
                                 style={{ width: width, height: 250 }}
-                                contentFit="cover"
-                                cachePolicy="memory-disk"
-                                transition={null}
-                                recyclingKey={item}
+                                resizeMode="cover"
                             />
                         )}
                         getItemLayout={(_, index) => ({

@@ -40,6 +40,8 @@ async function parseErrorBody(response: Response): Promise<string> {
     }
 }
 
+let unauthorizedHandler: (() => void) | null = null;
+
 async function performRequest<T>(
     url: string,
     options: RequestInit,
@@ -55,6 +57,10 @@ async function performRequest<T>(
         });
 
         if (!response.ok) {
+            if (response.status === 401 && unauthorizedHandler) {
+                unauthorizedHandler();
+            }
+
             const errorBody = await parseErrorBody(response);
             const code = getErrorCode(response.status);
             throw new ApiError(code, {
@@ -80,6 +86,10 @@ async function performRequest<T>(
 }
 
 export const apiClient = {
+    setUnauthorizedHandler: (handler: () => void) => {
+        unauthorizedHandler = handler;
+    },
+
     get: async <T>(endpoint: string, params?: Record<string, any>): Promise<T> => {
         const url = buildUrl(endpoint, params);
         const headers = await getAuthHeaders();

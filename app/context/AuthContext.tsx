@@ -1,8 +1,10 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import { ApiError, ApiErrorCode, createNetworkError } from '../../types/errors';
+import { apiClient } from '../../api/client';
 
 const safeStorage = {
     getItem: async (key: string) => {
@@ -58,6 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         loadStorageData();
+        apiClient.setUnauthorizedHandler(() => signOut(true));
     }, []);
 
     const loadStorageData = async () => {
@@ -144,11 +147,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
     };
 
-    const signOut = async () => {
+    const signOut = async (showPrompt = false) => {
         setToken(null);
         setUser(null);
         await safeStorage.removeItem('token');
         await safeStorage.removeItem('user');
+
+        if (showPrompt) {
+            Alert.alert(
+                'Session Expired',
+                'Please login again to continue.',
+                [{ text: 'OK' }]
+            );
+        }
     };
 
     const updateUser = async (updatedUser: User) => {
@@ -163,7 +174,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             isAuthenticated: !!token,
             signIn,
             signUp,
-            signOut,
+            signOut: () => signOut(false),
             token,
             updateUser
         }}>
