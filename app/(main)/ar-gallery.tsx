@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Pressable } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -65,10 +66,12 @@ export default function ARGalleryScreen() {
             >
                 <View style={styles.iconContainer}>
                     {item.images.exterior[0] ? (
-                        <Image
+                        <ExpoImage
                             source={{ uri: item.images.exterior[0] }}
                             style={{ width: 120, height: 80, borderRadius: 8 }}
-                            resizeMode="contain"
+                            contentFit="contain"
+                            transition={0}
+                            cachePolicy="memory-disk"
                         />
                     ) : (
                         <MaterialCommunityIcons
@@ -100,6 +103,21 @@ export default function ARGalleryScreen() {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar barStyle={colors.text === '#FFFFFF' ? 'light-content' : 'dark-content'} />
 
+            {/* Custom Header */}
+            <View style={[styles.customHeader, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+                <View style={styles.headerRow}>
+                    <View style={styles.headerLeft}>
+                        <Pressable
+                            style={[styles.menuButton, { backgroundColor: colors.surface }]}
+                            onPress={() => (router as any).openDrawer ? (router as any).openDrawer() : (router.back())}
+                        >
+                            <Ionicons name="arrow-back" size={24} color={colors.text} />
+                        </Pressable>
+                        <Text style={[styles.headerMainTitle, { color: colors.text }]}>AR Gallery</Text>
+                    </View>
+                </View>
+            </View>
+
             {loading ? (
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                     <Text style={{ color: colors.textSecondary }}>Loading models...</Text>
@@ -115,25 +133,21 @@ export default function ARGalleryScreen() {
                     columnWrapperStyle={styles.row}
                     ListHeaderComponent={
                         <View style={{ marginBottom: 16 }}>
-                            <View style={[styles.headerContent, { paddingVertical: 10 }]}>
-                                <MaterialCommunityIcons name="view-grid" size={28} color={colors.accent} />
-                                <View style={styles.headerTextContainer}>
-                                    <Text style={[styles.headerTitle, { color: colors.text }]}>AR Gallery</Text>
-                                    <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-                                        Explore {cars.length} Identified Models
-                                    </Text>
-                                </View>
+                            <View style={styles.headerContentContainer}>
+                                <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                                    Explore {cars.length} Identified Models
+                                </Text>
                             </View>
 
                             {/* Debug Info Overlay */}
-                            <View style={[styles.debugBanner, { backgroundColor: colors.accent + '15' }]}>
+                            <View style={[styles.debugBanner, { backgroundColor: colors.accent + '15', marginBottom: 12 }]}>
                                 <Ionicons name="bug-outline" size={16} color={colors.accent} style={{ marginRight: 8 }} />
                                 <Text style={[styles.debugText, { color: colors.text }]}>
                                     DEBUG: Identified {cars.length} 3D models.
                                 </Text>
                             </View>
 
-                            <View style={[styles.infoBanner, { backgroundColor: colors.accent + '10', marginTop: 12, marginHorizontal: 0 }]}>
+                            <View style={[styles.infoBanner, { backgroundColor: colors.accent + '10', marginHorizontal: 0 }]}>
                                 <Ionicons name="information-circle" size={20} color={colors.accent} />
                                 <Text style={[styles.infoBannerText, { color: colors.text }]}>
                                     Tap any car to view it in AR
@@ -168,13 +182,45 @@ const styles = StyleSheet.create({
     headerTextContainer: {
         marginLeft: 12,
     },
-    headerTitle: {
-        fontSize: 28,
+    headerMainTitle: {
+        fontSize: 20,
         fontWeight: 'bold',
     },
     headerSubtitle: {
         fontSize: 14,
         marginTop: 2,
+    },
+    customHeader: {
+        paddingTop: 50,
+        paddingBottom: 10,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        zIndex: 100,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    menuButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    headerContentContainer: {
+        paddingVertical: 10,
     },
     infoBanner: {
         flexDirection: 'row',

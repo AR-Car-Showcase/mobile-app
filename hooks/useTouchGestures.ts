@@ -15,8 +15,8 @@ interface GestureState {
 
 const ROTATION_SENSITIVITY = 0.01;
 const ZOOM_SENSITIVITY = 0.02;
-const MIN_ZOOM = 3;
-const MAX_ZOOM = 10;
+const MIN_ZOOM = 1.5;
+const MAX_ZOOM = 20;
 const MAX_ROTATION_X = 1.2;
 
 export function useTouchGestures(

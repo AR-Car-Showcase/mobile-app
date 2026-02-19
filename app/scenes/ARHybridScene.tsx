@@ -47,8 +47,8 @@ const GLASS_MATERIAL_NAMES = [
 const INITIAL_SCALE = 0.08;
 const ROTATION_STEP = 30;
 const SCALE_STEP = 0.05;
-const MAX_SCALE = 0.3;
-const MIN_SCALE = 0.05;
+const MAX_SCALE = 1.0;
+const MIN_SCALE = 0.01;
 const RESET_SCALE = 0.1;
 
 export default function ARHybridScene(props?: any) {

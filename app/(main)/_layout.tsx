@@ -150,6 +150,15 @@ export default function MainLayout() {
                         drawerItemStyle: { display: 'none' },
                     }}
                 />
+                <Drawer.Screen
+                    name="preferences"
+                    options={{
+                        title: 'Personalization',
+                        drawerLabel: 'Preferences',
+                        drawerIcon: ({ color, size }) => <Ionicons name="options-outline" size={size} color={color} />,
+                        headerShown: false,
+                    }}
+                />
             </Drawer>
         </ScrollProvider>
     );

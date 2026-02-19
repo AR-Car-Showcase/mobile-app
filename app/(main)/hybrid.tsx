@@ -12,10 +12,17 @@ import { generateCustomModel, getModelUrl } from '../services/blenderService';
 import { customizationsApi } from '../../api/customizations';
 import { ViroARSceneNavigator } from '@reactvision/react-viro';
 import ARHybridScene from '../scenes/ARHybridScene';
+import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+
+const MIN_ZOOM = 1.5;
+const MAX_ZOOM = 20;
+const ZOOM_STEP = 0.5;
 
 function HybridContent() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const { colors } = useTheme();
     const [viewMode, setViewMode] = useState<'3D' | 'AR'>('3D');
     const { config, updateMaterialColor, setShowCustomized, resetCustomization } = useCarContext();
     const [activeMaterial, setActiveMaterial] = useState('CAR_BODY_PRIMARY');
@@ -87,8 +94,21 @@ function HybridContent() {
 
     const handleRotateLeft = () => sceneRef.current?.rotateLeft?.();
     const handleRotateRight = () => sceneRef.current?.rotateRight?.();
-    const handleZoomIn = () => sceneRef.current?.zoomIn?.();
-    const handleZoomOut = () => sceneRef.current?.zoomOut?.();
+    const handleZoomIn = () => {
+        if (viewMode === '3D') {
+            setZoom(prev => Math.max(MIN_ZOOM, prev - ZOOM_STEP));
+        } else {
+            sceneRef.current?.zoomIn?.();
+        }
+    };
+
+    const handleZoomOut = () => {
+        if (viewMode === '3D') {
+            setZoom(prev => Math.min(MAX_ZOOM, prev + ZOOM_STEP));
+        } else {
+            sceneRef.current?.zoomOut?.();
+        }
+    };
 
     const resetPosition = () => {
         console.log('[HYBRID] Resetting camera position');
@@ -140,7 +160,7 @@ function HybridContent() {
     const dynamicButtonBg = backgroundTheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
 
     return (
-        <View style={CommonStyles.container}>
+        <View style={[CommonStyles.container, { backgroundColor: colors.background }]}>
             <View style={[styles.header, { top: 60, paddingHorizontal: 16, paddingTop: 10 }]}>
                 <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={() => router.back()}>
                     <Ionicons name="arrow-back" size={24} color={dynamicIconColor} />

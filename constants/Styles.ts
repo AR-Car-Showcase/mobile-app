@@ -6,7 +6,6 @@ const Colors = ColorPalette.dark;
 export const CommonStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
 
   header: {
