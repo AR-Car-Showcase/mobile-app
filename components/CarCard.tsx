@@ -12,10 +12,11 @@ interface CarCardProps {
     price: string;
     rating?: number;
     featured?: boolean;
+    fullWidth?: boolean;
     onPress?: () => void;
 }
 
-const CarCard = React.memo(({ id, name, image, price, rating, featured, onPress }: CarCardProps) => {
+const CarCard = React.memo(({ id, name, image, price, rating, featured, fullWidth, onPress }: CarCardProps) => {
     const { colors } = useTheme();
 
     const handlePress = () => {
@@ -31,7 +32,8 @@ const CarCard = React.memo(({ id, name, image, price, rating, featured, onPress 
             style={[
                 styles.container,
                 { backgroundColor: colors.surface },
-                featured && styles.featuredContainer
+                featured && styles.featuredContainer,
+                fullWidth && styles.fullWidthContainer
             ]}
             onPress={handlePress}
         >
@@ -58,8 +60,13 @@ const styles = StyleSheet.create({
     container: {
         borderRadius: 16,
         overflow: 'hidden',
-        width: 160,
+        width: 190,
         marginRight: 16,
+    },
+    fullWidthContainer: {
+        width: '100%',
+        marginRight: 0,
+        marginBottom: 16,
     },
     featuredContainer: {
         width: 280,

@@ -222,7 +222,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={CommonStyles.container}>
+    <View style={[CommonStyles.container, { backgroundColor: colors.background }]}>
       <Animated.View style={[styles.header, { backgroundColor: colors.background }, headerStyle]}>
         <View style={styles.headerContent}>
           <Pressable

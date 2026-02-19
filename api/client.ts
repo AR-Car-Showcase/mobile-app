@@ -69,7 +69,12 @@ async function performRequest<T>(
             });
         }
 
-        return await response.json();
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch {
+            return text as unknown as T;
+        }
     } catch (error) {
         if (error instanceof ApiError) throw error;
 

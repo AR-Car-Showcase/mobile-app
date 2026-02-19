@@ -14,12 +14,23 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useSmartScroll } from '../../hooks/useSmartScroll';
+import LoginRequiredModal from '../../../components/LoginRequiredModal';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen() {
     const { user, signOut } = useAuth();
     const { colors } = useTheme();
     const { scrollY } = useScrollContext();
     const navigation = useNavigation<DrawerNavigationProp<any>>();
+    const [showLoginModal, setShowLoginModal] = React.useState(false);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            if (!user) {
+                setShowLoginModal(true);
+            }
+        }, [user])
+    );
 
     const scrollHandler = useAnimatedScrollHandler((event) => {
         scrollY.value = event.contentOffset.y;
@@ -34,10 +45,25 @@ export default function ProfileScreen() {
 
     if (!user) {
         return (
-            <View style={[styles.container, { backgroundColor: colors.background }]}>
-                <Ionicons name="person-circle-outline" size={80} color={colors.textSecondary} />
-                <Text style={[styles.text, { color: colors.text }]}>Not Logged In</Text>
-                <Text style={[styles.subtext, { color: colors.textSecondary }]}>Log in to view your profile and saved customizations.</Text>
+            <View style={[styles.container, styles.centeredContainer, { backgroundColor: colors.background }]}>
+                <View style={styles.iconBackground}>
+                    <Ionicons name="person-circle-outline" size={100} color={colors.accent} />
+                </View>
+                <Text style={[styles.text, { color: colors.text }]}>Profile</Text>
+                <Text style={[styles.subtext, { color: colors.textSecondary }]}>Log in to view your profile and saved car builds</Text>
+                
+                <TouchableOpacity 
+                    style={[styles.loginButton, { backgroundColor: colors.accent }]}
+                    onPress={() => setShowLoginModal(true)}
+                >
+                    <Text style={styles.loginButtonText}>Login / Sign Up</Text>
+                </TouchableOpacity>
+
+                <LoginRequiredModal
+                    visible={showLoginModal}
+                    onClose={() => setShowLoginModal(false)}
+                    featureName="Profile"
+                />
             </View>
         );
     }
@@ -230,5 +256,34 @@ const styles = StyleSheet.create({
         marginTop: 8,
         textAlign: 'center',
         paddingHorizontal: 40,
+        marginBottom: 32,
+    },
+    centeredContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    iconBackground: {
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    loginButton: {
+        paddingHorizontal: 32,
+        paddingVertical: 14,
+        borderRadius: 28,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+    },
+    loginButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

@@ -15,6 +15,9 @@ import { getCarByBrandAndModel, getCarById } from '../../api/cars';
 import { recommendationsApi } from '../../api/recommendations';
 import { Car } from '../../types/car';
 import { useScrollContext } from '../context/ScrollContext';
+import { likeService } from '../services/likeService';
+import { useAuth } from '../context/AuthContext';
+import LoginRequiredModal from '../../components/LoginRequiredModal';
 
 const { width, height } = Dimensions.get('window');
 const TOP_TIER_HEIGHT = 88;
@@ -27,11 +30,12 @@ const MemoizedThumbnail = memo(({ item, isSelected, onPress, colors }: { item: s
             onPress={onPress}
             style={[styles.thumbnailWrapper, isSelected && { borderColor: colors.accent, borderWidth: 2 }]}
         >
-            <Image
+            <ExpoImage
                 source={{ uri: item }}
                 style={styles.thumbnail}
-                resizeMode="cover"
-                fadeDuration={0}
+                contentFit="cover"
+                transition={0}
+                cachePolicy="memory-disk"
             />
         </Pressable>
     );
@@ -39,7 +43,13 @@ const MemoizedThumbnail = memo(({ item, isSelected, onPress, colors }: { item: s
 
 const RelatedCarCard = memo(({ item, onPress, colors }: { item: Car, onPress: () => void, colors: any }) => (
     <Pressable style={[styles.relatedCarCard, { backgroundColor: colors.surface }]} onPress={onPress}>
-        <Image source={{ uri: item.images.exterior[0] }} style={styles.relatedCarImage} resizeMode="cover" />
+        <ExpoImage
+            source={{ uri: item.images.exterior[0] }}
+            style={styles.relatedCarImage}
+            contentFit="cover"
+            transition={0}
+            cachePolicy="memory-disk"
+        />
         <View style={styles.relatedCarInfo}>
             <Text style={[styles.relatedCarName, { color: colors.text }]} numberOfLines={1}>{item.brand} {item.model}</Text>
             <Text style={[styles.relatedCarPrice, { color: colors.accent }]}>{item.priceRange}</Text>
@@ -74,6 +84,9 @@ export default function VehicleDetailsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [selectedImageType, setSelectedImageType] = useState<'exterior' | 'interior'>('exterior');
+    const [isLiked, setIsLiked] = useState(false);
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const { isAuthenticated } = useAuth();
     const mainImageRef = useRef<any>(null);
     const thumbnailRef = useRef<any>(null);
 
@@ -114,6 +127,46 @@ export default function VehicleDetailsScreen() {
     useEffect(() => {
         loadCarData();
     }, [params.brand, params.model, params.id]);
+
+    useEffect(() => {
+        if (isAuthenticated && car?.id) {
+            checkLikeStatus();
+        }
+    }, [isAuthenticated, car?.id]);
+
+    const checkLikeStatus = async () => {
+        try {
+            if (car?.id) {
+                const liked = await likeService.checkLike(car.id);
+                setIsLiked(liked);
+            }
+        } catch (error) {
+            console.error('[Details] Failed to check like status:', error);
+        }
+    };
+
+    const handleToggleLike = async () => {
+        if (!isAuthenticated) {
+            setShowLoginModal(true);
+            return;
+        }
+
+        if (!car?.id) return;
+
+        const newLikedState = !isLiked;
+        setIsLiked(newLikedState);
+        
+        try {
+            if (newLikedState) {
+                await likeService.likeCar(car.id);
+            } else {
+                await likeService.unlikeCar(car.id);
+            }
+        } catch (error) {
+            console.error('[Details] Failed to toggle like:', error);
+            setIsLiked(!newLikedState); // Revert on failure
+        }
+    };
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -344,10 +397,20 @@ export default function VehicleDetailsScreen() {
                     </Animated.View>
                 </View>
 
-                <Pressable style={styles.backButton}>
-                    <Ionicons name="heart-outline" size={24} color={colors.accent} />
+                <Pressable style={styles.backButton} onPress={handleToggleLike}>
+                    <Ionicons 
+                        name={isLiked ? "heart" : "heart-outline"} 
+                        size={24} 
+                        color={isLiked ? colors.error : colors.accent} 
+                    />
                 </Pressable>
             </Animated.View>
+
+            <LoginRequiredModal 
+                visible={showLoginModal}
+                onClose={() => setShowLoginModal(false)}
+                featureName="Save Vehicles"
+            />
 
             <Animated.ScrollView
                 style={styles.scrollView}
@@ -384,12 +447,15 @@ export default function VehicleDetailsScreen() {
                             }
                         }}
                         renderItem={({ item }) => (
-                            <Image
+                            <ExpoImage
                                 source={{ uri: item }}
                                 style={{ width: width, height: 250 }}
-                                resizeMode="cover"
+                                contentFit="cover"
+                                transition={0}
+                                cachePolicy="memory-disk"
                             />
                         )}
+                        removeClippedSubviews={false}
                         getItemLayout={(_, index) => ({
                             length: width,
                             offset: width * index,
