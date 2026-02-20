@@ -26,6 +26,8 @@ export function useSceneMaterials(
     useEffect(() => {
         if (!scene || initializedRef.current) return;
 
+        const clonedMaterialsCache: Record<string, THREE.Material> = {};
+
         scene.traverse((child: any) => {
             if (!child.isMesh || !child.material) return;
 
@@ -36,13 +38,23 @@ export function useSceneMaterials(
             }
 
             if (CONFIGURABLE_MATERIALS.includes(child.material.name)) {
-                if (!originalColorsRef.current[child.material.name]) {
-                    originalColorsRef.current[child.material.name] = child.material.color.getStyle();
+                const matName = child.material.name;
+                
+                if (!originalColorsRef.current[matName]) {
+                    originalColorsRef.current[matName] = child.material.color.getStyle();
                 }
-                child.material = child.material.clone();
-                child.material.metalness = 0.6;
-                child.material.roughness = 0.2;
-                materialsRef.current.push(child.material);
+
+                // Check if we've already cloned this material
+                if (!clonedMaterialsCache[matName]) {
+                    const clonedMat = child.material.clone() as any;
+                    clonedMat.metalness = 0.6;
+                    clonedMat.roughness = 0.2;
+                    clonedMaterialsCache[matName] = clonedMat;
+                    materialsRef.current.push(clonedMat);
+                }
+                
+                // Assign the shared cloned material
+                child.material = clonedMaterialsCache[matName];
             }
         });
 

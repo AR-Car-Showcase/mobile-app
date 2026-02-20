@@ -120,7 +120,7 @@ export default function CustomizationDrawer({
                         >
                             <Ionicons name="color-wand" size={20} color="white" />
                             <Text style={styles.applyButtonText}>
-                                {isGenerating ? 'Generating...' : 'Save & Apply to AR'}
+                                {isGenerating ? 'Generating...' : 'Apply to AR'}
                             </Text>
                         </TouchableOpacity>
 

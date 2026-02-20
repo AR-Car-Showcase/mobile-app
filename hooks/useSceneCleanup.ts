@@ -10,12 +10,27 @@ export function useSceneCleanup(
         return () => {
             if (scene) {
                 scene.traverse((object: any) => {
-                    if (!object.isMesh) return;
-                    object.geometry?.dispose();
-                    if (Array.isArray(object.material)) {
-                        object.material.forEach((mat: THREE.Material) => mat.dispose());
-                    } else {
-                        object.material?.dispose();
+                    if (object.isMesh) {
+                        object.geometry?.dispose();
+                        
+                        const disposeMaterial = (mat: any) => {
+                            if (!mat) return;
+                            
+                            // Dispose textures
+                            Object.keys(mat).forEach(key => {
+                                if (mat[key] && mat[key].isTexture) {
+                                    mat[key].dispose();
+                                }
+                            });
+                            
+                            mat.dispose();
+                        };
+
+                        if (Array.isArray(object.material)) {
+                            object.material.forEach(disposeMaterial);
+                        } else {
+                            disposeMaterial(object.material);
+                        }
                     }
                 });
             }

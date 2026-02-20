@@ -121,7 +121,15 @@ function HybridContent() {
         }
     };
 
-    const handleApplyToAR = async () => {
+    const handleApplyToAR = async (useLiveAR = true) => {
+        if (useLiveAR) {
+            console.log('[HYBRID] Using Live AR - applying materials client-side');
+            setShowCustomized(true);
+            setGeneratedModelUrl(null); // Ensure we use the base model with Viro materials
+            setViewMode('AR');
+            return;
+        }
+
         setIsGenerating(true);
         try {
             const result = await generateCustomModel({

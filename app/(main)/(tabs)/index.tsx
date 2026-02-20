@@ -287,6 +287,7 @@ export default function HomeScreen() {
                   pathname: '/details',
                   params: { id: car.id }
                 })}
+                modelPath={car.model3D}
                 featured
               />
             ))}

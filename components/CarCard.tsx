@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, Image, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useTheme } from '../app/context/ThemeContext';
+import { useGLTF } from '@react-three/drei/native';
 import { router } from 'expo-router';
 
 interface CarCardProps {
@@ -14,10 +15,18 @@ interface CarCardProps {
     featured?: boolean;
     fullWidth?: boolean;
     onPress?: () => void;
+    modelPath?: string;
 }
 
-const CarCard = React.memo(({ id, name, image, price, rating, featured, fullWidth, onPress }: CarCardProps) => {
+const CarCard = React.memo(({ id, name, image, price, rating, featured, fullWidth, onPress, modelPath }: CarCardProps) => {
     const { colors } = useTheme();
+
+    useEffect(() => {
+        if (modelPath) {
+            console.log(`[PRELOAD] Preloading model: ${modelPath}`);
+            useGLTF.preload(modelPath);
+        }
+    }, [modelPath]);
 
     const handlePress = () => {
         if (onPress) {
