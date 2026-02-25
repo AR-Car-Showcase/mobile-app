@@ -1,26 +1,80 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, Pressable, Modal, FlatList, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable, Modal, FlatList, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { CommonStyles } from '../../constants';
+import Animated, {
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    interpolate,
+    Extrapolate,
+    useSharedValue,
+} from 'react-native-reanimated';
 import { getAllCars, searchCars } from '../../api/cars';
 import { Car } from '../../types/car';
 import { parsePrice, parseEngine, parsePower, parseMileage, parseTorque } from '../../utils/comparisonUtils';
 
 const SPEC_KEYS = [
     { key: 'priceRange', label: 'Price (Ex-Showroom)', type: 'price' },
+    { key: 'bodyType', label: 'Body Type', type: 'text' },
+    { key: 'fuelType', label: 'Fuel Type', type: 'text' },
+    { key: 'transmissionType', label: 'Transmission', type: 'text' },
+    { key: 'engine', label: 'Engine (cc)', type: 'engine' },
     { key: 'mileage', label: 'Mileage', type: 'mileage' },
-    { key: 'engine', label: 'Engine', type: 'engine' },
     { key: 'power', label: 'Max Power', type: 'power' },
     { key: 'torque', label: 'Max Torque', type: 'torque' },
+    { key: 'bootSpace', label: 'Boot Space', type: 'text' },
+    { key: 'fuelTankCapacity', label: 'Fuel Tank', type: 'text' },
+    { key: 'topSpeed', label: 'Top Speed', type: 'text' },
+    { key: 'acceleration', label: '0-100 km/h', type: 'text' },
+    { key: 'groundClearance', label: 'Ground Clearance', type: 'text' },
     { key: 'seatingCapacity', label: 'Seating Capacity', type: 'number' },
     { key: 'rating', label: 'User Rating', type: 'rating' },
 ];
 
+const TOP_TIER_HEIGHT = 88;
+const BOTTOM_TIER_HEIGHT = 88;
+const TOTAL_HEADER_HEIGHT = TOP_TIER_HEIGHT + BOTTOM_TIER_HEIGHT;
+
 export default function CompareScreen() {
     const { colors } = useTheme();
     const router = useRouter();
+    const scrollY = useSharedValue(0);
+
+    const scrollHandler = useAnimatedScrollHandler((event) => {
+        scrollY.value = event.contentOffset.y;
+    });
+
+    const tier1Style = useAnimatedStyle(() => {
+        const translateY = interpolate(scrollY.value, [0, TOP_TIER_HEIGHT], [0, -TOP_TIER_HEIGHT], Extrapolate.CLAMP);
+        const opacity = interpolate(scrollY.value, [0, TOP_TIER_HEIGHT / 2], [1, 0], Extrapolate.CLAMP);
+        return {
+            transform: [{ translateY }],
+            opacity,
+        };
+    });
+
+    const tier2Style = useAnimatedStyle(() => {
+        const translateY = interpolate(scrollY.value, [0, TOP_TIER_HEIGHT], [0, -TOP_TIER_HEIGHT], Extrapolate.CLAMP);
+        return {
+            transform: [{ translateY }],
+        };
+    });
+
+    const centeredTitleStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(scrollY.value, [TOP_TIER_HEIGHT, TOP_TIER_HEIGHT + 30], [1, 0], Extrapolate.CLAMP);
+        return { opacity };
+    });
+
+    const stickyNameStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(scrollY.value, [TOP_TIER_HEIGHT + 20, TOP_TIER_HEIGHT + 50], [0, 1], Extrapolate.CLAMP);
+        const translateX = interpolate(scrollY.value, [TOP_TIER_HEIGHT + 20, TOP_TIER_HEIGHT + 50], [20, 0], Extrapolate.CLAMP);
+        return {
+            opacity,
+            transform: [{ translateX }],
+        };
+    });
     const [selectedCars, setSelectedCars] = useState<Car[]>([]);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [searchResults, setSearchResults] = useState<Car[]>([]);
@@ -66,6 +120,9 @@ export default function CompareScreen() {
         if (key === 'priceRange') return car.priceRange;
         if (key === 'rating') return car.rating;
         if (key === 'seatingCapacity') return car.seatingCapacity;
+        if (key === 'bodyType' || key === 'fuelType' || key === 'transmissionType') {
+            return car[key as keyof Car] as string || 'N/A';
+        }
 
         const variant = car.variants?.[0];
         if (variant) {
@@ -78,16 +135,27 @@ export default function CompareScreen() {
             Object.values(car.specs).forEach(category => {
                 if (typeof category === 'object') {
                     Object.entries(category).forEach(([k, v]) => {
-                        if (k.toLowerCase().includes(key.toLowerCase()) ||
-                            (key === 'power' && k.toLowerCase().includes('power')) ||
-                            (key === 'torque' && k.toLowerCase().includes('torque'))) {
+                        const lowerK = k.toLowerCase();
+                        const lowerKey = key.toLowerCase();
+                        
+                        if (lowerK.includes(lowerKey)) {
+                            foundValue = v as string;
+                        } else if (key === 'power' && lowerK.includes('power')) {
+                            foundValue = v as string;
+                        } else if (key === 'torque' && lowerK.includes('torque')) {
+                            foundValue = v as string;
+                        } else if (key === 'fuelTankCapacity' && lowerK.includes('fuel tank')) {
+                            foundValue = v as string;
+                        } else if (key === 'topSpeed' && lowerK.includes('top speed')) {
+                            foundValue = v as string;
+                        } else if (key === 'acceleration' && (lowerK.includes('acceleration') || lowerK.includes('0-100'))) {
                             foundValue = v as string;
                         }
                     });
                 }
             });
         }
-        return foundValue === '-' ? 'N/A' : foundValue;
+        return foundValue === '-' || foundValue === '' ? 'N/A' : foundValue;
     };
 
     const isBest = (val: string | number, type: string, rowValues: (string | number)[]): boolean => {
@@ -121,15 +189,49 @@ export default function CompareScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { backgroundColor: colors.surface }]}>
+            <Animated.View style={[styles.tier1Header, { backgroundColor: colors.background }, tier1Style]}>
+                <Pressable onPress={() => {
+                    const r = router as any;
+                    if (r.openDrawer) r.openDrawer();
+                    else if (r.dispatch) {
+                        r.dispatch({ type: 'OPEN_DRAWER' });
+                    }
+                }} style={styles.menuButton}>
+                    <Ionicons name="menu" size={24} color={colors.text} />
+                </Pressable>
+                <Text style={[styles.tier1Title, { color: colors.text }]}>Compare Vehicles</Text>
+            </Animated.View>
+
+            <Animated.View style={[styles.tier2Header, { backgroundColor: colors.surface }, tier2Style]}>
                 <Pressable onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </Pressable>
-                <Text style={[styles.title, { color: colors.text }]}>Compare Cars</Text>
-                <View style={{ width: 40 }} />
-            </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.tier2TitleContainer}>
+                    <Animated.View style={[styles.centeredTitleWrapper, centeredTitleStyle]}>
+                        <Text style={[styles.headerTitle, { color: colors.text }]}>Compare</Text>
+                    </Animated.View>
+
+                    <Animated.View style={[styles.stickyNameWrapper, stickyNameStyle]}>
+                        <Text style={[styles.stickyCarName, { color: colors.text }]} numberOfLines={1}>
+                            {selectedCars.length > 0 
+                                ? selectedCars.map(c => c.model).join(' vs ') 
+                                : 'Select Cars'}
+                        </Text>
+                    </Animated.View>
+                </View>
+
+                <Pressable onPress={() => setSelectedCars([])} style={styles.clearButton}>
+                    <Text style={{ color: colors.error, fontSize: 14, fontWeight: '600' }}>Clear</Text>
+                </Pressable>
+            </Animated.View>
+
+            <Animated.ScrollView 
+                showsVerticalScrollIndicator={false}
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
+                contentContainerStyle={{ paddingTop: TOTAL_HEADER_HEIGHT + 10 }}
+            >
                 <View style={[styles.row, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
                     <View style={styles.labelCol} />
                     {[0, 1, 2].map((index) => {
@@ -179,14 +281,34 @@ export default function CompareScreen() {
                                     const val = rowValues[index];
                                     const best = selectedCars.length > 1 && isBest(val, spec.type, rowValues);
 
-                                    return (
-                                        <View key={index} style={styles.carCol}>
+                                    const renderVal = () => {
+                                        const lowerVal = String(val).toLowerCase();
+                                        const isTrue = lowerVal === 'true' || lowerVal === 'yes';
+                                        const isFalse = lowerVal === 'false' || lowerVal === 'no';
+
+                                        if (isTrue || isFalse) {
+                                            return (
+                                                <Ionicons 
+                                                    name={isTrue ? "checkmark-circle" : "close-circle"} 
+                                                    size={20} 
+                                                    color={isTrue ? colors.accent : colors.error} 
+                                                />
+                                            );
+                                        }
+
+                                        return (
                                             <Text style={[
                                                 styles.specValue,
                                                 { color: best ? '#4CAF50' : colors.text, fontWeight: best ? 'bold' : '500' }
                                             ]}>
                                                 {val} {best && <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />}
                                             </Text>
+                                        );
+                                    };
+
+                                    return (
+                                        <View key={index} style={styles.carCol}>
+                                            {renderVal()}
                                         </View>
                                     );
                                 })}
@@ -208,7 +330,7 @@ export default function CompareScreen() {
                 )}
 
                 <View style={{ height: 40 }} />
-            </ScrollView>
+            </Animated.ScrollView>
 
             <Modal
                 visible={isModalVisible}
@@ -266,20 +388,81 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    header: {
+    tier1Header: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: TOP_TIER_HEIGHT + 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingTop: 44,
+        zIndex: 110,
+    },
+    tier1Title: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginLeft: 16,
+    },
+    tier2Header: {
+        position: 'absolute',
+        top: TOP_TIER_HEIGHT,
+        left: 0,
+        right: 0,
+        height: BOTTOM_TIER_HEIGHT,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
-        paddingBottom: 8,
-        paddingTop: 8,
+        paddingTop: 20,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        zIndex: 100,
+    },
+    menuButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     backButton: {
-        padding: 8,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    title: {
-        fontSize: 18,
+    tier2TitleContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        height: '100%',
+        marginHorizontal: 8,
+    },
+    centeredTitleWrapper: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+    },
+    stickyNameWrapper: {
+        position: 'absolute',
+        left: 0,
+    },
+    headerTitle: {
+        fontSize: 30,
         fontWeight: 'bold',
+    },
+    stickyCarName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    clearButton: {
+        padding: 8,
     },
     row: {
         flexDirection: 'row',

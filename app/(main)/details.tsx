@@ -164,7 +164,7 @@ export default function VehicleDetailsScreen() {
             }
         } catch (error) {
             console.error('[Details] Failed to toggle like:', error);
-            setIsLiked(!newLikedState); // Revert on failure
+            setIsLiked(!newLikedState);
         }
     };
 
@@ -238,11 +238,15 @@ export default function VehicleDetailsScreen() {
     const displayName = `${car.brand.charAt(0).toUpperCase() + car.brand.slice(1)} ${car.model.charAt(0).toUpperCase() + car.model.slice(1)}`;
 
     const renderSpecValue = (value: any) => {
-        if (typeof value === 'boolean') {
-            return value ? (
-                <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
+        const lowerVal = String(value).toLowerCase();
+        const isTrue = value === true || lowerVal === 'true' || lowerVal === 'yes';
+        const isFalse = value === false || lowerVal === 'false' || lowerVal === 'no';
+
+        if (isTrue || isFalse) {
+            return isTrue ? (
+                <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
             ) : (
-                <Ionicons name="close-circle-outline" size={18} color={colors.textTertiary} />
+                <Ionicons name="close-circle" size={20} color={colors.error} />
             );
         }
         return <Text style={[styles.specValueDetail, { color: colors.text }]}>{String(value)}</Text>;
