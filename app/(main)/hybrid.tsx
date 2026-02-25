@@ -121,28 +121,22 @@ function HybridContent() {
         }
     };
 
-    const handleApplyToAR = async (useLiveAR = true) => {
-        if (useLiveAR) {
-            console.log('[HYBRID] Using Live AR - applying materials client-side');
-            setShowCustomized(true);
-            setGeneratedModelUrl(null); // Ensure we use the base model with Viro materials
-            setViewMode('AR');
-            return;
-        }
-
+    const handleApplyToAR = async () => {
         setIsGenerating(true);
         try {
+            console.log('[HYBRID] Generating custom model for AR');
             const result = await generateCustomModel({
-                vehicleId: car?.id,
-                materials: config.materials,
-                showCustomized: true
-            } as any);
+                vehicleId: car?.id?.toString(),
+                materials: config.materials
+            });
 
             const modelUrl = getModelUrl(result.filename);
+            console.log('[HYBRID] Model generated:', modelUrl);
             setGeneratedModelUrl(modelUrl);
             setShowCustomized(true);
             setViewMode('AR');
         } catch (error: any) {
+            console.error('[HYBRID] Generation failed:', error);
             Alert.alert('Error', error.message || 'Generation service unavailable.');
         } finally {
             setIsGenerating(false);
