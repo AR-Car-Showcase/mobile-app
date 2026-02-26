@@ -18,7 +18,7 @@ import LoginRequiredModal from '../../../components/LoginRequiredModal';
 import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProfileScreen() {
-    const { user, signOut } = useAuth();
+    const { user, signOut, fetchProfile } = useAuth();
     const { colors } = useTheme();
     const { scrollY } = useScrollContext();
     const navigation = useNavigation<DrawerNavigationProp<any>>();
@@ -28,8 +28,10 @@ export default function ProfileScreen() {
         React.useCallback(() => {
             if (!user) {
                 setShowLoginModal(true);
+            } else {
+                fetchProfile();
             }
-        }, [user])
+        }, [!!user])
     );
 
     const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -101,11 +103,11 @@ export default function ProfileScreen() {
 
                 <View style={[styles.statsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View style={styles.statBox}>
-                        <Text style={[styles.statNumber, { color: colors.text }]}>0</Text>
+                        <Text style={[styles.statNumber, { color: colors.text }]}>{user.savedCount || 0}</Text>
                         <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Saved</Text>
                     </View>
                     <View style={styles.statBox}>
-                        <Text style={[styles.statNumber, { color: colors.text }]}>0</Text>
+                        <Text style={[styles.statNumber, { color: colors.text }]}>{user.customizedCount || 0}</Text>
                         <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Customs</Text>
                     </View>
                 </View>

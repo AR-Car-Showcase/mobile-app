@@ -24,6 +24,7 @@ const safeStorage = {
 const API_URL = `${Constants.expoConfig?.extra?.API_URL}/auth`;
 
 interface User {
+    id?: number;
     username: string;
     email: string;
     roles: string[];
@@ -35,6 +36,8 @@ interface User {
     preferredTransmissions?: string[];
     drivingCondition?: string;
     maxBudget?: number | null;
+    savedCount?: number;
+    customizedCount?: number;
 }
 
 interface AuthContextType {
@@ -46,6 +49,7 @@ interface AuthContextType {
     signOut: () => Promise<void>;
     token: string | null;
     updateUser: (updatedUser: User) => Promise<void>;
+    fetchProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -167,6 +171,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await safeStorage.setItem('user', JSON.stringify(updatedUser));
     };
 
+    const fetchProfile = async () => {
+        try {
+            const data = await apiClient.get<User>('/user/profile');
+            if (data) {
+                setUser(prevUser => {
+                    const updatedUser = {
+                        ...(prevUser || {}),
+                        ...data
+                    } as User;
+                    safeStorage.setItem('user', JSON.stringify(updatedUser));
+                    return updatedUser;
+                });
+            }
+        } catch (error) {
+            console.error('[Auth] Failed to fetch profile:', error);
+        }
+    };
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -176,7 +198,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             signUp,
             signOut: () => signOut(false),
             token,
-            updateUser
+            updateUser,
+            fetchProfile
         }}>
             {children}
         </AuthContext.Provider>
