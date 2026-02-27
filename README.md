@@ -1,50 +1,147 @@
-# Welcome to your Expo app 👋
+# 🚗 AR Car Showcase
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+An immersive **Augmented Reality Car Showcase** mobile app built with **React Native**, **Expo**, and **ViroReact**. Browse and explore 3D car models in augmented reality, customize colors, and experience vehicles like never before.
 
-## Get started
+---
 
-1. Install dependencies
+## 🛠️ Tech Stack
+
+| Technology | Version |
+|---|---|
+| React Native | 0.81.5 |
+| Expo | ~54.0.32 |
+| Expo Router | ~6.0.22 |
+| TypeScript | ~5.9.2 |
+| ViroReact (`@reactvision/react-viro`) | ^2.43.6 |
+| Three.js | ^0.182.0 |
+| React Three Fiber | ^9.5.0 |
+| React Three Drei | ^10.7.7 |
+
+---
+
+## ✨ Features
+
+- 🔭 **Augmented Reality** – View 3D car models in your real environment using ViroReact
+- 🎨 **Color Customization** – Customize car colors with an interactive color picker
+- 🚘 **3D Model Viewer** – Explore detailed `.glb` and `.obj` car models
+- 📱 **Cross-Platform** – Supports Android and iOS
+- 🗂️ **File-Based Routing** – Powered by Expo Router for seamless navigation
+- 🖼️ **Image Picker** – Select and use custom images within the app
+
+---
+
+## 📁 Project Structure
+
+```
+AR-Car-Showcase/
+├── app/              # File-based routes (Expo Router)
+├── api/              # API utilities
+├── assets/           # Images, models, and other assets
+├── components/       # Reusable UI components
+├── constants/        # App-wide constants
+├── hooks/            # Custom React hooks
+├── scripts/          # Utility scripts
+├── types/            # TypeScript type definitions
+├── utils/            # Helper functions
+├── inspect_glb.js    # GLB model inspector utility
+��── inspect_obj.js    # OBJ model inspector utility
+├── app.json          # Expo app configuration
+└── tsconfig.json     # TypeScript configuration
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18+ recommended)
+- [Expo CLI](https://docs.expo.dev/get-started/installation/)
+- Android or iOS device/emulator with AR support
+
+### Installation
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/AdepuSriCharan/AR-Car-Showcase.git
+   cd AR-Car-Showcase
+   ```
+
+2. **Install dependencies**
 
    ```bash
    npm install
    ```
 
-2. Start the app
+3. **Start the app**
 
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 📲 Running on Devices
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+| Platform | Command |
+|---|---|
+| Android | `npm run android` |
+| iOS | `npm run ios` |
+| Web | `npm run web` |
+| Expo Go | Scan QR code from `npx expo start` |
 
-## Get a fresh project
+> ⚠️ **Note:** AR features require a physical device with ARCore (Android) or ARKit (iOS) support. AR may not work on emulators/simulators.
 
-When you're ready, run:
+---
+
+## 🧹 Linting
+
+```bash
+npm run lint
+```
+
+---
+
+## 🔄 Reset Project
+
+To reset the project to a blank state:
 
 ```bash
 npm run reset-project
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+This moves the starter code to `app-example/` and creates a fresh `app/` directory.
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## 📦 Key Dependencies
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- [`@reactvision/react-viro`](https://github.com/NativeVision/viro) – AR/VR framework for React Native
+- [`three`](https://threejs.org/) – 3D graphics library
+- [`@react-three/fiber`](https://docs.pmnd.rs/react-three-fiber) – React renderer for Three.js
+- [`@react-three/drei`](https://github.com/pmndrs/drei) – Useful helpers for React Three Fiber
+- [`expo-router`](https://expo.github.io/router) – File-based routing for Expo
+- [`react-native-reanimated`](https://docs.swmansion.com/react-native-reanimated/) – Animations
+- [`react-native-wheel-color-picker`](https://github.com/Naeemur/react-native-wheel-color-picker) – Color picker component
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## 🌐 Learn More
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [Expo Documentation](https://docs.expo.dev/)
+- [ViroReact Documentation](https://viro-community.readme.io/)
+- [React Native Documentation](https://reactnative.dev/)
+- [Three.js Documentation](https://threejs.org/docs/)
+
+---
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to open an issue or submit a pull request.
+
+---
+
+## 📄 License
+
+This project is private. All rights reserved.
