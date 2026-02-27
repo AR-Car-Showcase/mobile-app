@@ -44,7 +44,7 @@ AR-Car-Showcase/
 ├── types/            # TypeScript type definitions
 ├── utils/            # Helper functions
 ├── inspect_glb.js    # GLB model inspector utility
-��── inspect_obj.js    # OBJ model inspector utility
+├── inspect_obj.js    # OBJ model inspector utility
 ├── app.json          # Expo app configuration
 └── tsconfig.json     # TypeScript configuration
 ```
