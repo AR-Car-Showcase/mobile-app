@@ -39,6 +39,22 @@ const SignupScreen = () => {
             return;
         }
 
+        if (username.length < 3) {
+            Alert.alert('Validation Error', 'Username must be at least 3 characters long');
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Alert.alert('Validation Error', 'Please enter a valid email address');
+            return;
+        }
+
+        if (password.length < 8) {
+            Alert.alert('Validation Error', 'Password must be at least 8 characters long');
+            return;
+        }
+
         setLoading(true);
         try {
             await signUp(username, email, password, phoneNumber, profilePic || undefined);
