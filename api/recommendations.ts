@@ -2,6 +2,11 @@ import { apiClient } from './client';
 import { Car } from '../types/car';
 import { CarData } from '../types/api';
 import { carsApi, transformCarData } from './cars';
+import {
+    AiAssistantResponse,
+    AiCompareRequest,
+    AiRecommendRequest,
+} from '../types/ai';
 
 export const recommendationsApi = {
     getGuestRecommendations: async (_country: string = 'US'): Promise<Car[]> => {
@@ -50,6 +55,24 @@ export const recommendationsApi = {
             await apiClient.post('/cars/recommendations/feedback', { carId, action });
         } catch (error) {
             console.warn('[Recommendation] Failed to track interaction:', error);
+        }
+    },
+
+    compareCarsWithAi: async (payload: AiCompareRequest): Promise<AiAssistantResponse | null> => {
+        try {
+            return await apiClient.post<AiAssistantResponse>('/cars/ai/compare', payload);
+        } catch (error) {
+            console.error('[Recommendation] Failed to fetch AI comparison:', error);
+            return null;
+        }
+    },
+
+    recommendCarsWithAi: async (payload: AiRecommendRequest): Promise<AiAssistantResponse | null> => {
+        try {
+            return await apiClient.post<AiAssistantResponse>('/cars/ai/recommend', payload);
+        } catch (error) {
+            console.error('[Recommendation] Failed to fetch AI recommendations:', error);
+            return null;
         }
     },
 };

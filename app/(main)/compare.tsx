@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Image, Pressable, Modal, FlatList, TextInput, A
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { CommonStyles } from '../../constants';
 import Animated, {
     useAnimatedScrollHandler,
     useAnimatedStyle,
@@ -12,6 +11,7 @@ import Animated, {
     useSharedValue,
 } from 'react-native-reanimated';
 import { getAllCars, searchCars } from '../../api/cars';
+import { recommendationsApi } from '../../api/recommendations';
 import { Car } from '../../types/car';
 import { parsePrice, parseEngine, parsePower, parseMileage, parseTorque } from '../../utils/comparisonUtils';
 
@@ -80,6 +80,11 @@ export default function CompareScreen() {
     const [searchResults, setSearchResults] = useState<Car[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
+    const [aiNeed, setAiNeed] = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiInsight, setAiInsight] = useState('');
+    const [aiError, setAiError] = useState('');
+    const [aiModel, setAiModel] = useState('');
 
     useEffect(() => {
         loadInitialCars();
@@ -114,6 +119,43 @@ export default function CompareScreen() {
 
     const removeCar = (id: number) => {
         setSelectedCars(selectedCars.filter(c => c.id !== id));
+    };
+
+    const runAiComparison = async () => {
+        if (selectedCars.length < 2) {
+            setAiError('Select at least 2 cars for AI comparison.');
+            return;
+        }
+
+        setAiLoading(true);
+        setAiError('');
+
+        const response = await recommendationsApi.compareCarsWithAi({
+            carIds: selectedCars.map(car => car.id),
+            carNames: selectedCars.map(car => `${car.brand} ${car.model}`),
+            userNeed: aiNeed.trim(),
+            dataSource: 'AUTO',
+        });
+
+        if (!response) {
+            setAiInsight('');
+            setAiModel('');
+            setAiError('Unable to generate AI comparison right now. Please try again.');
+            setAiLoading(false);
+            return;
+        }
+
+        setAiInsight(sanitizeAiAnswer(response.answer || ''));
+        setAiModel(response.model || '');
+        setAiLoading(false);
+    };
+
+    const sanitizeAiAnswer = (text: string): string => {
+        return text
+            .replace(/<think[^>]*>[\s\S]*?<\/think>/gi, ' ')
+            .replace(/<\/?think[^>]*>/gi, ' ')
+            .replace(/\*\*/g, '')
+            .trim();
     };
 
     const getSpecValue = (car: Car, key: string, type: string): string | number => {
@@ -221,7 +263,15 @@ export default function CompareScreen() {
                     </Animated.View>
                 </View>
 
-                <Pressable onPress={() => setSelectedCars([])} style={styles.clearButton}>
+                <Pressable
+                    onPress={() => {
+                        setSelectedCars([]);
+                        setAiInsight('');
+                        setAiError('');
+                        setAiModel('');
+                    }}
+                    style={styles.clearButton}
+                >
                     <Text style={{ color: colors.error, fontSize: 14, fontWeight: '600' }}>Clear</Text>
                 </Pressable>
             </Animated.View>
@@ -328,6 +378,66 @@ export default function CompareScreen() {
                         </Pressable>
                     </View>
                 )}
+
+                <View style={[styles.aiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.aiTitleRow}>
+                        <MaterialCommunityIcons name="robot-outline" size={18} color={colors.accent} />
+                        <Text style={[styles.aiTitle, { color: colors.text }]}>AI Differentiation Assistant</Text>
+                    </View>
+
+                    <Text style={[styles.aiSubtitle, { color: colors.textSecondary }]}>
+                        Tell AI what matters to you, and it will explain the best option among selected cars.
+                    </Text>
+                    <Text style={[styles.aiHint, { color: colors.textSecondary }]}>
+                        Smart mode is always enabled: DB first, JSON fallback if needed.
+                    </Text>
+
+                    <TextInput
+                        style={[
+                            styles.aiInput,
+                            {
+                                backgroundColor: colors.background,
+                                color: colors.text,
+                                borderColor: colors.border,
+                            }
+                        ]}
+                        placeholder="Example: I drive mostly in city traffic and want low running cost under 18 lakhs."
+                        placeholderTextColor={colors.textSecondary}
+                        value={aiNeed}
+                        onChangeText={setAiNeed}
+                        multiline
+                    />
+
+                    <Pressable
+                        style={[
+                            styles.aiActionButton,
+                            {
+                                backgroundColor: selectedCars.length >= 2 ? colors.accent : colors.surfaceHighlight,
+                            }
+                        ]}
+                        disabled={aiLoading || selectedCars.length < 2}
+                        onPress={runAiComparison}
+                    >
+                        {aiLoading ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                            <Text style={styles.aiActionText}>Generate AI Comparison</Text>
+                        )}
+                    </Pressable>
+
+                    {aiError ? (
+                        <Text style={[styles.aiError, { color: colors.error }]}>{aiError}</Text>
+                    ) : null}
+
+                    {aiInsight ? (
+                        <View style={[styles.aiResultBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                            <Text style={[styles.aiResultText, { color: colors.text }]}>{aiInsight}</Text>
+                            <Text style={[styles.aiMeta, { color: colors.textSecondary }]}>
+                                Model: {aiModel || 'N/A'}
+                            </Text>
+                        </View>
+                    ) : null}
+                </View>
 
                 <View style={{ height: 40 }} />
             </Animated.ScrollView>
@@ -549,6 +659,69 @@ const styles = StyleSheet.create({
     mainAddButtonText: {
         color: '#FFF',
         fontWeight: 'bold',
+    },
+    aiCard: {
+        marginHorizontal: 14,
+        marginTop: 18,
+        borderRadius: 14,
+        borderWidth: 1,
+        padding: 14,
+        gap: 10,
+    },
+    aiTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    aiTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+    },
+    aiSubtitle: {
+        fontSize: 12,
+        lineHeight: 18,
+    },
+    aiHint: {
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    aiInput: {
+        minHeight: 84,
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        textAlignVertical: 'top',
+        fontSize: 13,
+    },
+    aiActionButton: {
+        borderRadius: 10,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    aiActionText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    aiError: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    aiResultBox: {
+        borderWidth: 1,
+        borderRadius: 10,
+        padding: 10,
+        gap: 8,
+    },
+    aiResultText: {
+        fontSize: 13,
+        lineHeight: 20,
+    },
+    aiMeta: {
+        fontSize: 11,
+        fontWeight: '600',
     },
     modalContainer: {
         flex: 1,
