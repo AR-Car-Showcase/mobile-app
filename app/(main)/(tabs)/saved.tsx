@@ -1,28 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Colors } from '../../../constants/Colors';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { useScrollContext } from '../../context/ScrollContext';
 import { useNavigation } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-    useAnimatedScrollHandler,
-    useAnimatedStyle,
-    interpolate,
-    Extrapolate
-} from 'react-native-reanimated';
-
-import { useSmartScroll } from '../../hooks/useSmartScroll';
 import { useAuth } from '../../context/AuthContext';
 import { likeService, Car } from '../../services/likeService';
 import CarCard from '../../../components/CarCard';
 import { useFocusEffect } from '@react-navigation/native';
-import { ActivityIndicator, FlatList } from 'react-native';
 
 export default function SavedScreen() {
     const { colors } = useTheme();
-    const { scrollY } = useScrollContext();
     const navigation = useNavigation<DrawerNavigationProp<any>>();
     const { isAuthenticated } = useAuth();
     const [likedCars, setLikedCars] = React.useState<Car[]>([]);
@@ -51,20 +39,9 @@ export default function SavedScreen() {
         }
     };
 
-    const scrollHandler = useAnimatedScrollHandler((event) => {
-        scrollY.value = event.contentOffset.y;
-    });
-
-    const headerStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ translateY: 0 }],
-            opacity: 1,
-        };
-    });
-
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <Animated.View style={[styles.headerWrapper, headerStyle]}>
+            <View style={styles.headerWrapper}>
                 <Pressable
                     style={[styles.menuButton, { backgroundColor: colors.surface }]}
                     onPress={() => navigation.openDrawer()}
@@ -72,9 +49,9 @@ export default function SavedScreen() {
                     <Ionicons name="menu" size={24} color={colors.text} />
                 </Pressable>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Saved</Text>
-            </Animated.View>
+            </View>
 
-            <Animated.View
+            <View
                 style={styles.scrollContent}
                 onLayout={() => {}}
             >
@@ -114,7 +91,7 @@ export default function SavedScreen() {
                         showsVerticalScrollIndicator={false}
                     />
                 )}
-            </Animated.View>
+            </View>
         </View>
     );
 }

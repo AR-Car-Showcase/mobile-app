@@ -9,12 +9,6 @@
     "newArchEnabled": true,
     "plugins": [
       [
-        "expo-image-picker",
-        {
-          "photosPermission": "Allow access to select marker images"
-        }
-      ],
-      [
         "@reactvision/react-viro",
         {
           "androidXrMode": "AR"
@@ -26,12 +20,13 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "useLegacyPackaging": false
+            "useLegacyPackaging": false,
+            "extraProguardRules": "-keep class com.facebook.hermes.unicode.** { *; }\n-keep class com.facebook.jni.** { *; }\n-keep class com.viro.renderer.** { *; }\n-keep class com.viro.core.** { *; }",
+            "minSdkVersion": 24
           }
         }
       ],
       "expo-router",
-      "expo-web-browser",
       "expo-asset"
     ],
     "ios": {
@@ -54,10 +49,15 @@
         "CAMERA",
         "INTERNET"
       ],
-      "versionCode": 1
+      "versionCode": 1,
+      "enableDangerousExperimentalLeanBuilds": false,
+      "splits": {
+        "abi": true,
+        "density": false
+      }
     },
     "extra": {
-      "API_URL": "https://oversufficient-tinley-slimming.ngrok-free.dev/api",
+      "API_URL": "https://muscles-untitled-shared-conclusions.trycloudflare.com/api",
       "router": {
         "scheme": "arcarshowcase"
       },

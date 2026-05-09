@@ -88,7 +88,7 @@ const LoginScreen = () => {
                     style={AuthStyles.linkButton}
                     onPress={() => router.push('/auth/signup')}
                 >
-                    <Text style={AuthStyles.linkText}>Don't have an account? <Text style={AuthStyles.linkHighlight}>Sign Up</Text></Text>
+                    <Text style={AuthStyles.linkText}>Don&apos;t have an account? <Text style={AuthStyles.linkHighlight}>Sign Up</Text></Text>
                 </TouchableOpacity>
             </ScrollView>
         </KeyboardAvoidingView>

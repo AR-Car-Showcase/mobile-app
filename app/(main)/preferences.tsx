@@ -151,7 +151,7 @@ export default function PreferencesScreen() {
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
                 <Text style={[styles.subtitle, { color: colors.textTertiary }]}>
-                    Tell us what you like, and we'll find the perfect cars for you.
+                    Tell us what you like, and we&apos;ll find the perfect cars for you.
                 </Text>
 
                 {renderChipSection("Favorite Brands", options.brands, selectedBrands, setSelectedBrands)}

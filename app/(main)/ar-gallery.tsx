@@ -11,7 +11,6 @@ import { Car } from '../../types/car';
 export default function ARGalleryScreen() {
     const { colors } = useTheme();
     const router = useRouter();
-    const [selectedModel, setSelectedModel] = useState<string | null>(null);
     const [cars, setCars] = useState<Car[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -40,7 +39,6 @@ export default function ARGalleryScreen() {
     }, []);
 
     const handleModelPress = (car: Car) => {
-        setSelectedModel(String(car.id));
         router.push({
             pathname: '/hybrid',
             params: {

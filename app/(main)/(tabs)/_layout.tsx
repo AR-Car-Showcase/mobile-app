@@ -1,6 +1,5 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { ScrollProvider } from '../../context/ScrollContext';
 import AnimatedTabBar from '../../../components/AnimatedTabBar';
 
 export default function TabsLayout() {

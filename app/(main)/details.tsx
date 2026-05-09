@@ -19,7 +19,7 @@ import { likeService } from '../services/likeService';
 import { useAuth } from '../context/AuthContext';
 import LoginRequiredModal from '../../components/LoginRequiredModal';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const TOP_TIER_HEIGHT = 88;
 const BOTTOM_TIER_HEIGHT = 88;
 const TOTAL_HEADER_HEIGHT = TOP_TIER_HEIGHT + BOTTOM_TIER_HEIGHT;
@@ -40,6 +40,7 @@ const MemoizedThumbnail = memo(({ item, isSelected, onPress, colors }: { item: s
         </Pressable>
     );
 });
+MemoizedThumbnail.displayName = 'MemoizedThumbnail';
 
 const RelatedCarCard = memo(({ item, onPress, colors }: { item: Car, onPress: () => void, colors: any }) => (
     <Pressable style={[styles.relatedCarCard, { backgroundColor: colors.surface }]} onPress={onPress}>
@@ -56,6 +57,7 @@ const RelatedCarCard = memo(({ item, onPress, colors }: { item: Car, onPress: ()
         </View>
     </Pressable>
 ));
+RelatedCarCard.displayName = 'RelatedCarCard';
 
 const SPEC_CATEGORIES: Record<string, string[]> = {
     "Engine & Transmission": ["Engine Type", "Displacement", "Engine Displacement", "Max Power", "Max Torque", "No. of Cylinders", "Valves Per Cylinder", "Turbo Charger", "Transmission Type", "Gearbox", "Drive Type"],

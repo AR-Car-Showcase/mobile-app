@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, Image, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../constants/Colors';
 import { useTheme } from '../app/context/ThemeContext';
 import { useGLTF } from '@react-three/drei/native';
 import { router } from 'expo-router';
@@ -62,6 +61,7 @@ const CarCard = React.memo(({ id, name, image, price, rating, featured, fullWidt
         </Pressable>
     );
 });
+CarCard.displayName = 'CarCard';
 
 export default CarCard;
 
