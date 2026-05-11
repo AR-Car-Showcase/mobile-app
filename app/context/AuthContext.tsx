@@ -22,6 +22,19 @@ const safeStorage = {
 
 const API_URL = `${Constants.expoConfig?.extra?.API_URL}/auth`;
 
+const parseResponseBody = async (response: Response): Promise<any> => {
+    try {
+        return await response.json();
+    } catch {
+        try {
+            const text = await response.text();
+            return text ? { message: text } : {};
+        } catch {
+            return {};
+        }
+    }
+};
+
 interface User {
     id?: number;
     username: string;
@@ -92,7 +105,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             throw createNetworkError(error);
         }
 
-        const data = await response.json();
+        const data = await parseResponseBody(response);
 
         if (!response.ok) {
             if (response.status === 401) {
@@ -138,12 +151,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             throw createNetworkError(error);
         }
 
-        const data = await response.json();
+        const data = await parseResponseBody(response);
 
         if (!response.ok) {
             throw new ApiError(ApiErrorCode.SERVER_ERROR, {
                 statusCode: response.status,
-                userMessage: data.message || 'Signup failed. Please try again.',
+                message: typeof data?.message === 'string' ? data.message : undefined,
+                userMessage: data?.message || 'Signup failed. Please try again.',
             });
         }
     };

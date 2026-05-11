@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/Colors';
 import { AuthStyles } from '../../constants/AuthStyles';
+import { isApiError } from '../../types/errors';
 
 const SignupScreen = () => {
     const [username, setUsername] = useState('');
@@ -62,7 +63,10 @@ const SignupScreen = () => {
                 { text: 'OK', onPress: () => router.push('/auth/login') }
             ]);
         } catch (error: any) {
-            Alert.alert('Signup Failed', error.message || 'Something went wrong');
+            const message = isApiError(error)
+                ? error.userMessage
+                : (error?.message || 'Something went wrong');
+            Alert.alert('Signup Failed', message);
         } finally {
             setLoading(false);
         }
