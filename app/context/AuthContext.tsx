@@ -1,26 +1,22 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { ApiError, ApiErrorCode, createNetworkError } from '../../types/errors';
 import { apiClient } from '../../api/client';
+import {
+    clearAuthSession,
+    clearStoredUser,
+    getAccessToken,
+    getRefreshToken,
+    getStoredUser,
+    logoutRemoteSession,
+    refreshAuthSession,
+    setAuthTokens,
+    storeUser,
+} from '../../api/session';
 
-const safeStorage = {
-    getItem: async (key: string) => {
-        if (!AsyncStorage) return null;
-        try { return await AsyncStorage.getItem(key); } catch { return null; }
-    },
-    setItem: async (key: string, value: string) => {
-        if (!AsyncStorage) return;
-        try { await AsyncStorage.setItem(key, value); } catch { }
-    },
-    removeItem: async (key: string) => {
-        if (!AsyncStorage) return;
-        try { await AsyncStorage.removeItem(key); } catch { }
-    }
-};
-
-const API_URL = `${Constants.expoConfig?.extra?.API_URL}/auth`;
+const API_BASE_URL = Constants.expoConfig?.extra?.API_URL ?? 'http://10.0.2.2:8080/api';
+const AUTH_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
 
 const parseResponseBody = async (response: Response): Promise<any> => {
     try {
@@ -39,7 +35,7 @@ interface User {
     id?: number;
     username: string;
     email: string;
-    roles: string[];
+    roles?: string[];
     phoneNumber?: string;
     profilePic?: string;
     favBrands?: string[];
@@ -72,22 +68,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
     useEffect(() => {
-        loadStorageData();
+        bootstrapSession();
         apiClient.setUnauthorizedHandler(() => signOut(true));
     }, []);
 
-    const loadStorageData = async () => {
+    const bootstrapSession = async () => {
         try {
-            const storedToken = await safeStorage.getItem('token');
-            const storedUser = await safeStorage.getItem('user');
+            const [storedAccessToken, storedRefreshToken, storedUser] = await Promise.all([
+                getAccessToken(),
+                getRefreshToken(),
+                getStoredUser<User>(),
+            ]);
 
-            if (storedToken && storedUser) {
-                setToken(storedToken);
-                setUser(JSON.parse(storedUser));
+            if (storedAccessToken) {
+                setToken(storedAccessToken);
+                if (storedUser) {
+                    setUser(storedUser);
+                }
+            } else if (storedRefreshToken) {
+                const refreshed = await refreshAuthSession();
+                if (refreshed?.accessToken) {
+                    setToken(refreshed.accessToken);
+                }
+            }
+
+            const activeToken = storedAccessToken || (await getAccessToken());
+            if (!activeToken) {
+                await clearStoredUser();
+                return;
+            }
+
+            try {
+                const profile = await apiClient.get<User>('/user/profile');
+                setUser(profile);
+                await storeUser(profile);
+            } catch (profileError) {
+                if (!storedUser) {
+                    throw profileError;
+                }
             }
         } catch (error) {
-            console.error('[Auth] Failed to load stored data:', error);
+            console.error('[Auth] Failed to bootstrap session:', error);
+            await clearAuthSession();
+            setToken(null);
+            setUser(null);
         } finally {
             setIsLoading(false);
         }
@@ -96,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const signIn = async (username: string, password: string) => {
         let response: Response;
         try {
-            response = await fetch(`${API_URL}/signin`, {
+            response = await fetch(`${AUTH_BASE_URL}/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
@@ -114,38 +140,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     userMessage: data.message || 'Invalid username or password.',
                 });
             }
+
             throw new ApiError(ApiErrorCode.SERVER_ERROR, {
                 statusCode: response.status,
                 message: data.message || 'Login failed',
             });
         }
 
-        const userObj: User = {
-            username: data.username,
-            email: data.email,
-            roles: data.roles,
-            phoneNumber: data.phoneNumber,
-            profilePic: data.profilePic,
-            favBrands: data.favBrands,
-            preferredBodyTypes: data.preferredBodyTypes,
-            preferredFuelTypes: data.preferredFuelTypes,
-            preferredTransmissions: data.preferredTransmissions,
-            drivingCondition: data.drivingCondition,
-            maxBudget: data.maxBudget
-        };
-        setToken(data.token);
-        setUser(userObj);
-        await safeStorage.setItem('token', data.token);
-        await safeStorage.setItem('user', JSON.stringify(userObj));
+        if (!data?.accessToken || !data?.refreshToken) {
+            throw new ApiError(ApiErrorCode.SERVER_ERROR, {
+                statusCode: response.status,
+                message: 'Login response did not include tokens.',
+            });
+        }
+
+        await setAuthTokens(data.accessToken, data.refreshToken);
+        setToken(data.accessToken);
+
+        try {
+            const profile = await apiClient.get<User>('/user/profile');
+            setUser(profile);
+            await storeUser(profile);
+        } catch (error) {
+            await clearAuthSession();
+            setToken(null);
+            setUser(null);
+            throw error;
+        }
     };
 
     const signUp = async (username: string, email: string, password: string, phoneNumber?: string, profilePic?: string) => {
         let response: Response;
         try {
-            response = await fetch(`${API_URL}/signup`, {
+            response = await fetch(`${API_BASE_URL}/auth/signup`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password, phoneNumber, profilePic, role: ['user'] }),
+                body: JSON.stringify({ username, email, password, phoneNumber, profilePic }),
             });
         } catch (error) {
             throw createNetworkError(error);
@@ -163,10 +193,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const signOut = async (showPrompt = false) => {
-        setToken(null);
-        setUser(null);
-        await safeStorage.removeItem('token');
-        await safeStorage.removeItem('user');
+        try {
+            await logoutRemoteSession();
+        } catch {
+            // Best-effort server logout.
+        } finally {
+            await clearAuthSession();
+            setToken(null);
+            setUser(null);
+        }
 
         if (showPrompt) {
             Alert.alert(
@@ -179,7 +214,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const updateUser = async (updatedUser: User) => {
         setUser(updatedUser);
-        await safeStorage.setItem('user', JSON.stringify(updatedUser));
+        await storeUser(updatedUser);
     };
 
     const fetchProfile = async () => {
@@ -191,7 +226,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         ...(prevUser || {}),
                         ...data
                     } as User;
-                    safeStorage.setItem('user', JSON.stringify(updatedUser));
+                    void storeUser(updatedUser);
                     return updatedUser;
                 });
             }

@@ -1,19 +1,24 @@
 import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiError, ApiErrorCode, getErrorCode, createNetworkError } from '../types/errors';
+import { getAccessToken, refreshAuthSession } from './session';
 
 const getBaseUrl = () => Constants.expoConfig?.extra?.API_URL;
 
 export const BASE_URL = getBaseUrl();
 
 const DEFAULT_TIMEOUT_MS = 15000;
+let refreshPromise: Promise<boolean> | null = null;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-    const token = await AsyncStorage.getItem('token');
+    const token = await getAccessToken();
     return {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
+}
+
+function isPublicAuthUrl(url: string): boolean {
+    return /\/login(?:\?|$)|\/refresh(?:\?|$)|\/logout(?:\?|$)|\/api\/auth\/signup(?:\?|$)/.test(url);
 }
 
 function buildUrl(endpoint: string, params?: Record<string, string | number | boolean>): string {
@@ -40,12 +45,26 @@ async function parseErrorBody(response: Response): Promise<string> {
     }
 }
 
+async function attemptTokenRefresh(): Promise<boolean> {
+    if (!refreshPromise) {
+        refreshPromise = refreshAuthSession()
+            .then(Boolean)
+            .catch(() => false)
+            .finally(() => {
+                refreshPromise = null;
+            });
+    }
+
+    return refreshPromise;
+}
+
 let unauthorizedHandler: (() => void) | null = null;
 
 async function performRequest<T>(
     url: string,
     options: RequestInit,
-    timeoutMs: number = DEFAULT_TIMEOUT_MS
+    timeoutMs: number = DEFAULT_TIMEOUT_MS,
+    allowRefreshRetry = true
 ): Promise<T> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -57,6 +76,22 @@ async function performRequest<T>(
         });
 
         if (!response.ok) {
+            if (response.status === 401 && allowRefreshRetry && !isPublicAuthUrl(url)) {
+                const refreshed = await attemptTokenRefresh();
+                if (refreshed) {
+                    clearTimeout(timeoutId);
+                    return performRequest<T>(
+                        url,
+                        {
+                            ...options,
+                            headers: await getAuthHeaders(),
+                        },
+                        timeoutMs,
+                        false
+                    );
+                }
+            }
+
             if (response.status === 401 && unauthorizedHandler) {
                 unauthorizedHandler();
             }
