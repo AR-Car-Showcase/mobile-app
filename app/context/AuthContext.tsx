@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { Alert } from 'react-native';
 import Constants from 'expo-constants';
-import { ApiError, ApiErrorCode, createNetworkError } from '../../types/errors';
+import { ApiError, ApiErrorCode, createNetworkError, getErrorCode } from '../../types/errors';
 import { apiClient } from '../../api/client';
 import {
     clearAuthSession,
@@ -48,12 +48,23 @@ interface User {
     customizedCount?: number;
 }
 
+interface EmailVerificationResponse {
+    message: string;
+    verificationRequired: boolean;
+    email: string;
+    expiresInMinutes: number;
+    resendAfterSeconds: number;
+}
+
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     isAuthenticated: boolean;
     signIn: (username: string, password: string) => Promise<void>;
-    signUp: (username: string, email: string, password: string, phoneNumber?: string, profilePic?: string) => Promise<void>;
+    signInWithGoogle: (idToken: string) => Promise<void>;
+    signUp: (username: string, email: string, password: string, phoneNumber?: string, profilePic?: string) => Promise<EmailVerificationResponse>;
+    verifyEmail: (email: string, code: string) => Promise<string>;
+    resendVerification: (email: string) => Promise<EmailVerificationResponse>;
     signOut: () => Promise<void>;
     token: string | null;
     updateUser: (updatedUser: User) => Promise<void>;
@@ -119,6 +130,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
     };
 
+    const establishSession = async (accessToken: string, refreshToken: string) => {
+        await setAuthTokens(accessToken, refreshToken);
+        setToken(accessToken);
+
+        try {
+            const profile = await apiClient.get<User>('/user/profile');
+            setUser(profile);
+            await storeUser(profile);
+        } catch (error) {
+            await clearAuthSession();
+            setToken(null);
+            setUser(null);
+            throw error;
+        }
+    };
+
     const signIn = async (username: string, password: string) => {
         let response: Response;
         try {
@@ -133,13 +160,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         const data = await parseResponseBody(response);
 
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new ApiError(ApiErrorCode.UNAUTHORIZED, {
-                    statusCode: 401,
-                    userMessage: data.message || 'Invalid username or password.',
-                });
-            }
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new ApiError(ApiErrorCode.UNAUTHORIZED, {
+                        statusCode: 401,
+                        userMessage: data.message || 'Invalid username/email or password.',
+                    });
+                }
 
             throw new ApiError(ApiErrorCode.SERVER_ERROR, {
                 statusCode: response.status,
@@ -154,22 +181,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             });
         }
 
-        await setAuthTokens(data.accessToken, data.refreshToken);
-        setToken(data.accessToken);
-
-        try {
-            const profile = await apiClient.get<User>('/user/profile');
-            setUser(profile);
-            await storeUser(profile);
-        } catch (error) {
-            await clearAuthSession();
-            setToken(null);
-            setUser(null);
-            throw error;
-        }
+        await establishSession(data.accessToken, data.refreshToken);
     };
 
-    const signUp = async (username: string, email: string, password: string, phoneNumber?: string, profilePic?: string) => {
+    const signInWithGoogle = async (idToken: string) => {
+        if (!idToken) {
+            throw new ApiError(ApiErrorCode.SERVER_ERROR, {
+                message: 'Google sign-in did not return an ID token.',
+            });
+        }
+
+        let response: Response;
+        try {
+            response = await fetch(`${AUTH_BASE_URL}/login/google`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken }),
+            });
+        } catch (error) {
+            throw createNetworkError(error);
+        }
+
+        const data = await parseResponseBody(response);
+
+        if (!response.ok) {
+            throw new ApiError(ApiErrorCode.SERVER_ERROR, {
+                statusCode: response.status,
+                message: data?.message || 'Google sign-in failed',
+                userMessage: data?.message || 'Google sign-in failed. Please try again.',
+            });
+        }
+
+        if (!data?.accessToken || !data?.refreshToken) {
+            throw new ApiError(ApiErrorCode.SERVER_ERROR, {
+                statusCode: response.status,
+                message: 'Google sign-in response did not include tokens.',
+            });
+        }
+
+        await establishSession(data.accessToken, data.refreshToken);
+    };
+
+    const signUp = async (username: string, email: string, password: string, phoneNumber?: string, profilePic?: string): Promise<EmailVerificationResponse> => {
         let response: Response;
         try {
             response = await fetch(`${API_BASE_URL}/auth/signup`, {
@@ -184,12 +237,66 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const data = await parseResponseBody(response);
 
         if (!response.ok) {
-            throw new ApiError(ApiErrorCode.SERVER_ERROR, {
+            const errorCode = getErrorCode(response.status);
+            throw new ApiError(errorCode, {
                 statusCode: response.status,
                 message: typeof data?.message === 'string' ? data.message : undefined,
                 userMessage: data?.message || 'Signup failed. Please try again.',
             });
         }
+
+        return data as EmailVerificationResponse;
+    };
+
+    const verifyEmail = async (email: string, code: string): Promise<string> => {
+        let response: Response;
+        try {
+            response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code }),
+            });
+        } catch (error) {
+            throw createNetworkError(error);
+        }
+
+        const data = await parseResponseBody(response);
+        if (!response.ok) {
+            const errorCode = getErrorCode(response.status);
+            throw new ApiError(errorCode, {
+                statusCode: response.status,
+                message: typeof data?.message === 'string' ? data.message : undefined,
+                userMessage: data?.message || 'Verification failed. Please try again.',
+            });
+        }
+
+        return typeof data?.message === 'string' ? data.message : 'Email verified successfully.';
+    };
+
+    const resendVerification = async (email: string): Promise<EmailVerificationResponse> => {
+        let response: Response;
+        try {
+            response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+        } catch (error) {
+            throw createNetworkError(error);
+        }
+
+        const data = await parseResponseBody(response);
+
+        if (!response.ok) {
+            const errorCode = getErrorCode(response.status);
+            throw new ApiError(errorCode, {
+                statusCode: response.status,
+                message: typeof data?.message === 'string' ? data.message : undefined,
+                userMessage: data?.message || 'Could not resend verification code.',
+            });
+        }
+
+        return data as EmailVerificationResponse;
     };
 
     const signOut = async (showPrompt = false) => {
@@ -241,7 +348,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             isLoading,
             isAuthenticated: !!token,
             signIn,
+            signInWithGoogle,
             signUp,
+            verifyEmail,
+            resendVerification,
             signOut: () => signOut(false),
             token,
             updateUser,

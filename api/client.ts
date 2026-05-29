@@ -18,7 +18,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 function isPublicAuthUrl(url: string): boolean {
-    return /\/login(?:\?|$)|\/refresh(?:\?|$)|\/logout(?:\?|$)|\/api\/auth\/signup(?:\?|$)/.test(url);
+    return /\/login(?:\?|$)|\/refresh(?:\?|$)|\/logout(?:\?|$)|\/api\/auth\/signup(?:\?|$)|\/api\/auth\/verify-email(?:\?|$)|\/api\/auth\/resend-verification(?:\?|$)/.test(url);
 }
 
 function buildUrl(endpoint: string, params?: Record<string, string | number | boolean>): string {

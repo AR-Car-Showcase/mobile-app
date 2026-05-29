@@ -9,6 +9,7 @@ const USER_KEY = 'auth.user';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_URL ?? '';
 const AUTH_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
+const GOOGLE_CONFIG_URL = `${API_BASE_URL}/auth/google/config`;
 const USE_SECURE_STORE = Platform.OS !== 'web';
 
 async function setValue(key: string, value: string, secure: boolean) {
@@ -126,3 +127,26 @@ export async function logoutRemoteSession() {
     }
 }
 
+export interface GoogleAuthConfig {
+    enabled: boolean;
+    issuerUri?: string;
+    autoLinkByEmail?: boolean;
+    clientId?: string;
+}
+
+export async function fetchGoogleAuthConfig(): Promise<GoogleAuthConfig | null> {
+    if (!API_BASE_URL) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(GOOGLE_CONFIG_URL);
+        if (!response.ok) {
+            return null;
+        }
+
+        return (await response.json()) as GoogleAuthConfig;
+    } catch {
+        return null;
+    }
+}

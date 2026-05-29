@@ -43,6 +43,7 @@ const InitialLayout = () => {
         <Stack.Screen name="(main)" />
         <Stack.Screen name="auth/login" />
         <Stack.Screen name="auth/signup" />
+        <Stack.Screen name="auth/verify-email" />
       </Stack>
     </View>
   );

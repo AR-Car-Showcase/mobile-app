@@ -3,6 +3,8 @@ export enum ApiErrorCode {
     TIMEOUT = 'TIMEOUT',
     UNAUTHORIZED = 'UNAUTHORIZED',
     FORBIDDEN = 'FORBIDDEN',
+    CONFLICT = 'CONFLICT',
+    TOO_MANY_REQUESTS = 'TOO_MANY_REQUESTS',
     NOT_FOUND = 'NOT_FOUND',
     SERVER_ERROR = 'SERVER_ERROR',
     UNKNOWN = 'UNKNOWN',
@@ -13,6 +15,8 @@ const USER_MESSAGES: Record<ApiErrorCode, string> = {
     [ApiErrorCode.TIMEOUT]: 'Request timed out. Please try again.',
     [ApiErrorCode.UNAUTHORIZED]: 'Session expired. Please log in again.',
     [ApiErrorCode.FORBIDDEN]: "You don't have permission to access this.",
+    [ApiErrorCode.CONFLICT]: 'That account already exists or is already in use.',
+    [ApiErrorCode.TOO_MANY_REQUESTS]: 'Too many requests. Please wait and try again.',
     [ApiErrorCode.NOT_FOUND]: 'The requested data was not found.',
     [ApiErrorCode.SERVER_ERROR]: 'Something went wrong. Please try again later.',
     [ApiErrorCode.UNKNOWN]: 'An unexpected error occurred.',
@@ -40,6 +44,8 @@ export function isApiError(error: unknown): error is ApiError {
 export function getErrorCode(statusCode: number): ApiErrorCode {
     if (statusCode === 401) return ApiErrorCode.UNAUTHORIZED;
     if (statusCode === 403) return ApiErrorCode.FORBIDDEN;
+    if (statusCode === 409) return ApiErrorCode.CONFLICT;
+    if (statusCode === 429) return ApiErrorCode.TOO_MANY_REQUESTS;
     if (statusCode === 404) return ApiErrorCode.NOT_FOUND;
     if (statusCode >= 500) return ApiErrorCode.SERVER_ERROR;
     return ApiErrorCode.UNKNOWN;

@@ -1,18 +1,62 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import Constants from 'expo-constants';
 import { Colors } from '../../constants/Colors';
 import { AuthStyles } from '../../constants/AuthStyles';
+import { fetchGoogleAuthConfig, GoogleAuthConfig } from '../../api/session';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const LoginScreen = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const { signIn } = useAuth();
+    const [googleLoading, setGoogleLoading] = useState(false);
+    const [googleConfig, setGoogleConfig] = useState<GoogleAuthConfig | null>(null);
+    const { signIn, signInWithGoogle } = useAuth();
     const router = useRouter();
     const Theme = Colors.dark;
+
+    const googleClientIds = useMemo(() => ({
+        expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || undefined,
+        androidClientId: Constants.expoConfig?.extra?.GOOGLE_ANDROID_CLIENT_ID || undefined,
+        iosClientId: Constants.expoConfig?.extra?.GOOGLE_IOS_CLIENT_ID || undefined,
+        webClientId: Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID || undefined,
+    }), []);
+
+    const [googleRequest, , googlePromptAsync] = Google.useAuthRequest({
+        expoClientId: googleClientIds.expoClientId,
+        androidClientId: googleClientIds.androidClientId,
+        iosClientId: googleClientIds.iosClientId,
+        webClientId: googleClientIds.webClientId,
+        scopes: ['openid', 'profile', 'email'],
+    });
+
+    useEffect(() => {
+        let mounted = true;
+
+        fetchGoogleAuthConfig().then((config) => {
+            if (mounted) {
+                setGoogleConfig(config);
+            }
+        }).catch(() => {
+            if (mounted) {
+                setGoogleConfig(null);
+            }
+        });
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const isGoogleEnabled = !!googleConfig?.enabled;
+    const hasGoogleClientIds = !!(googleClientIds.expoClientId || googleClientIds.androidClientId || googleClientIds.iosClientId || googleClientIds.webClientId);
 
     const handleLogin = async () => {
         if (!username || !password) {
@@ -35,6 +79,41 @@ const LoginScreen = () => {
         }
     };
 
+    const handleGoogleLogin = async () => {
+        if (!isGoogleEnabled) {
+            Alert.alert('Google Sign-In Unavailable', 'Please try username/password login for now.');
+            return;
+        }
+
+        if (!hasGoogleClientIds || !googleRequest) {
+            Alert.alert('Google Sign-In Unavailable', 'Google client IDs are missing from app configuration.');
+            return;
+        }
+
+        setGoogleLoading(true);
+        try {
+            const result = await googlePromptAsync();
+            if (result.type !== 'success') {
+                return;
+            }
+
+            const idToken =
+                result.authentication?.idToken ||
+                (result.params as Record<string, string | undefined> | undefined)?.id_token ||
+                (result.params as Record<string, string | undefined> | undefined)?.idToken;
+
+            if (!idToken) {
+                throw new Error('Google sign-in did not return an ID token.');
+            }
+
+            await signInWithGoogle(idToken);
+        } catch (error: any) {
+            Alert.alert('Google Sign-In Failed', error.message || 'Please try again.');
+        } finally {
+            setGoogleLoading(false);
+        }
+    };
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -50,12 +129,13 @@ const LoginScreen = () => {
                     <View style={AuthStyles.inputContainer}>
                         <Ionicons name="person-outline" size={20} color={Theme.textSecondary} style={AuthStyles.icon} />
                         <TextInput
-                            placeholder="Username"
+                            placeholder="Username or email"
                             placeholderTextColor={Theme.textTertiary}
                             style={AuthStyles.input}
                             value={username}
                             onChangeText={setUsername}
                             autoCapitalize="none"
+                            autoComplete="username"
                         />
                     </View>
 
@@ -68,6 +148,7 @@ const LoginScreen = () => {
                             value={password}
                             onChangeText={setPassword}
                             secureTextEntry
+                            autoComplete="password"
                         />
                     </View>
                 </View>
@@ -83,6 +164,33 @@ const LoginScreen = () => {
                         <Text style={AuthStyles.buttonText}>Sign In</Text>
                     )}
                 </TouchableOpacity>
+                <Text style={{ color: Theme.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 10, marginBottom: 4 }}>
+                    Use your username or email for local sign-in. Google sign-in is available below.
+                </Text>
+
+                <View style={styles.dividerRow}>
+                    <View style={styles.dividerLine} />
+                    <Text style={[styles.dividerText, { color: Theme.textSecondary }]}>or continue with</Text>
+                    <View style={styles.dividerLine} />
+                </View>
+
+                <TouchableOpacity
+                    style={[
+                        styles.googleButton,
+                        (!isGoogleEnabled || !hasGoogleClientIds || !googleRequest || googleLoading) && styles.googleButtonDisabled,
+                    ]}
+                    onPress={handleGoogleLogin}
+                    disabled={!isGoogleEnabled || !hasGoogleClientIds || !googleRequest || googleLoading}
+                >
+                    {googleLoading ? (
+                        <ActivityIndicator color={Theme.text} />
+                    ) : (
+                        <>
+                            <Ionicons name="logo-google" size={18} color={Theme.text} />
+                            <Text style={[styles.googleButtonText, { color: Theme.text }]}>Continue with Google</Text>
+                        </>
+                    )}
+                </TouchableOpacity>
 
                 <TouchableOpacity
                     style={AuthStyles.linkButton}
@@ -90,9 +198,56 @@ const LoginScreen = () => {
                 >
                     <Text style={AuthStyles.linkText}>Don&apos;t have an account? <Text style={AuthStyles.linkHighlight}>Sign Up</Text></Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={AuthStyles.linkButton}
+                    onPress={() => router.push('/auth/verify-email')}
+                >
+                    <Text style={AuthStyles.linkText}>Already signed up? <Text style={AuthStyles.linkHighlight}>Verify Email</Text></Text>
+                </TouchableOpacity>
             </ScrollView>
         </KeyboardAvoidingView>
     );
 };
 
 export default LoginScreen;
+
+const styles = {
+    dividerRow: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: 12,
+        marginVertical: 20,
+        paddingHorizontal: 8,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    },
+    dividerText: {
+        fontSize: 12,
+        fontWeight: '600' as const,
+        letterSpacing: 1,
+        textTransform: 'uppercase' as const,
+    },
+    googleButton: {
+        minHeight: 54,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.12)',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        gap: 10,
+        marginBottom: 8,
+    },
+    googleButtonDisabled: {
+        opacity: 0.5,
+    },
+    googleButtonText: {
+        fontSize: 16,
+        fontWeight: '700' as const,
+    },
+};
