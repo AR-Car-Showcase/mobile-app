@@ -3,12 +3,15 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Keyb
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
 import { Colors } from '../../constants/Colors';
 import { AuthStyles } from '../../constants/AuthStyles';
+import { isApiError } from '../../types/errors';
 import { fetchGoogleAuthConfig, GoogleAuthConfig } from '../../api/session';
+import { resolveGoogleIdToken } from '../../utils/googleAuth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -17,11 +20,11 @@ const LoginScreen = () => {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
+    const [googlePending, setGooglePending] = useState(false);
     const [googleConfig, setGoogleConfig] = useState<GoogleAuthConfig | null>(null);
     const { signIn, signInWithGoogle } = useAuth();
     const router = useRouter();
     const Theme = Colors.dark;
-
     const googleClientIds = useMemo(() => ({
         expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || undefined,
         androidClientId: Constants.expoConfig?.extra?.GOOGLE_ANDROID_CLIENT_ID || undefined,
@@ -29,13 +32,66 @@ const LoginScreen = () => {
         webClientId: Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID || undefined,
     }), []);
 
-    const [googleRequest, , googlePromptAsync] = Google.useAuthRequest({
+    const redirectUri = useMemo(() => {
+        if (Platform.OS === 'web') {
+            return undefined;
+        }
+
+        return AuthSession.makeRedirectUri({
+            native: `${Constants.expoConfig?.android?.package || 'com.adepusricharan.arcarshowcase'}:/oauthredirect`,
+        });
+    }, []);
+
+    useEffect(() => {
+        if (__DEV__ && redirectUri) {
+            console.log('[GoogleAuth] redirectUri:', redirectUri);
+        }
+    }, [redirectUri]);
+
+    const [googleRequest, googleResult, googlePromptAsync] = Google.useAuthRequest({
         expoClientId: googleClientIds.expoClientId,
         androidClientId: googleClientIds.androidClientId,
         iosClientId: googleClientIds.iosClientId,
         webClientId: googleClientIds.webClientId,
+        ...(redirectUri ? { redirectUri } : {}),
         scopes: ['openid', 'profile', 'email'],
     });
+
+    useEffect(() => {
+        if (!googlePending || !googleResult) {
+            return;
+        }
+
+        if (googleResult.type === 'dismiss' || googleResult.type === 'cancel') {
+            setGooglePending(false);
+            setGoogleLoading(false);
+            return;
+        }
+
+        let mounted = true;
+        (async () => {
+            try {
+                const idToken = await resolveGoogleIdToken(googleResult, googleRequest);
+                if (!idToken) {
+                    throw new Error('Google sign-in did not return an ID token.');
+                }
+                await signInWithGoogle(idToken);
+            } catch (error: any) {
+                if (mounted) {
+                    Alert.alert('Google Sign-In Failed', error?.message || 'Please try again.');
+                }
+            } finally {
+                if (mounted) {
+                    setGooglePending(false);
+                    setGoogleLoading(false);
+                }
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, [googlePending, googleResult, googleRequest, signInWithGoogle]);
 
     useEffect(() => {
         let mounted = true;
@@ -73,7 +129,10 @@ const LoginScreen = () => {
         try {
             await signIn(username, password);
         } catch (error: any) {
-            Alert.alert('Login Failed', error.message || 'Check your credentials');
+            const message = isApiError(error)
+                ? error.userMessage
+                : (error?.message || 'Check your credentials');
+            Alert.alert('Login Failed', message);
         } finally {
             setLoading(false);
         }
@@ -91,26 +150,13 @@ const LoginScreen = () => {
         }
 
         setGoogleLoading(true);
+        setGooglePending(true);
         try {
-            const result = await googlePromptAsync();
-            if (result.type !== 'success') {
-                return;
-            }
-
-            const idToken =
-                result.authentication?.idToken ||
-                (result.params as Record<string, string | undefined> | undefined)?.id_token ||
-                (result.params as Record<string, string | undefined> | undefined)?.idToken;
-
-            if (!idToken) {
-                throw new Error('Google sign-in did not return an ID token.');
-            }
-
-            await signInWithGoogle(idToken);
+            await googlePromptAsync();
         } catch (error: any) {
-            Alert.alert('Google Sign-In Failed', error.message || 'Please try again.');
-        } finally {
+            setGooglePending(false);
             setGoogleLoading(false);
+            Alert.alert('Google Sign-In Failed', error.message || 'Please try again.');
         }
     };
 

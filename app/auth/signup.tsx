@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as AuthSession from 'expo-auth-session';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
@@ -10,6 +11,7 @@ import Constants from 'expo-constants';
 import { Colors } from '../../constants/Colors';
 import { AuthStyles } from '../../constants/AuthStyles';
 import { isApiError } from '../../types/errors';
+import { resolveGoogleIdToken } from '../../utils/googleAuth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -21,11 +23,11 @@ const SignupScreen = () => {
     const [profilePic, setProfilePic] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
+    const [googlePending, setGooglePending] = useState(false);
 
     const { signUp, signInWithGoogle } = useAuth();
     const router = useRouter();
     const Theme = Colors.dark;
-
     const googleClientIds = useMemo(() => ({
         expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || undefined,
         androidClientId: Constants.expoConfig?.extra?.GOOGLE_ANDROID_CLIENT_ID || undefined,
@@ -33,13 +35,66 @@ const SignupScreen = () => {
         webClientId: Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID || undefined,
     }), []);
 
-    const [googleRequest, , googlePromptAsync] = Google.useAuthRequest({
+    const redirectUri = useMemo(() => {
+        if (Platform.OS === 'web') {
+            return undefined;
+        }
+
+        return AuthSession.makeRedirectUri({
+            native: `${Constants.expoConfig?.android?.package || 'com.adepusricharan.arcarshowcase'}:/oauthredirect`,
+        });
+    }, []);
+
+    useEffect(() => {
+        if (__DEV__ && redirectUri) {
+            console.log('[GoogleAuth] redirectUri:', redirectUri);
+        }
+    }, [redirectUri]);
+
+    const [googleRequest, googleResult, googlePromptAsync] = Google.useAuthRequest({
         expoClientId: googleClientIds.expoClientId,
         androidClientId: googleClientIds.androidClientId,
         iosClientId: googleClientIds.iosClientId,
         webClientId: googleClientIds.webClientId,
+        ...(redirectUri ? { redirectUri } : {}),
         scopes: ['openid', 'profile', 'email'],
     });
+
+    useEffect(() => {
+        if (!googlePending || !googleResult) {
+            return;
+        }
+
+        if (googleResult.type === 'dismiss' || googleResult.type === 'cancel') {
+            setGooglePending(false);
+            setGoogleLoading(false);
+            return;
+        }
+
+        let mounted = true;
+        (async () => {
+            try {
+                const idToken = await resolveGoogleIdToken(googleResult, googleRequest);
+                if (!idToken) {
+                    throw new Error('Google sign-in did not return an ID token.');
+                }
+                await signInWithGoogle(idToken);
+            } catch (error: any) {
+                if (mounted) {
+                    Alert.alert('Google Sign-In', error.message || 'Google sign-in is not available yet.');
+                }
+            } finally {
+                if (mounted) {
+                    setGooglePending(false);
+                    setGoogleLoading(false);
+                }
+            }
+        })();
+
+        return () => {
+            mounted = false;
+        };
+    }, [googlePending, googleResult, googleRequest, signInWithGoogle]);
     const hasGoogleClientIds = !!(googleClientIds.expoClientId || googleClientIds.androidClientId || googleClientIds.iosClientId || googleClientIds.webClientId);
 
     const pickImage = async () => {
@@ -113,26 +168,13 @@ const SignupScreen = () => {
         }
 
         setGoogleLoading(true);
+        setGooglePending(true);
         try {
-            const result = await googlePromptAsync();
-            if (result.type !== 'success') {
-                return;
-            }
-
-            const idToken =
-                result.authentication?.idToken ||
-                (result.params as Record<string, string | undefined> | undefined)?.id_token ||
-                (result.params as Record<string, string | undefined> | undefined)?.idToken;
-
-            if (!idToken) {
-                throw new Error('Google sign-in did not return an ID token.');
-            }
-
-            await signInWithGoogle(idToken);
+            await googlePromptAsync();
         } catch (error: any) {
-            Alert.alert('Google Sign-In', error.message || 'Google sign-in is not available yet.');
-        } finally {
+            setGooglePending(false);
             setGoogleLoading(false);
+            Alert.alert('Google Sign-In', error.message || 'Google sign-in is not available yet.');
         }
     };
 
