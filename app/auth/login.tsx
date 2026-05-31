@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, ScrollView, Platform, Linking } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,11 +7,12 @@ import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
-import { Colors } from '../../constants/Colors';
-import { AuthStyles } from '../../constants/AuthStyles';
+import { createAuthStyles } from '../../constants/AuthStyles';
 import { isApiError } from '../../types/errors';
-import { fetchGoogleAuthConfig, GoogleAuthConfig } from '../../api/session';
+import { fetchGoogleAuthConfig, GoogleAuthConfig, SUPPORT_EMAIL } from '../../api/session';
 import { resolveGoogleIdToken } from '../../utils/googleAuth';
+import { useTheme } from '../context/ThemeContext';
+import { useAppAlert } from '../context/AppAlertContext';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -22,9 +23,13 @@ const LoginScreen = () => {
     const [googleLoading, setGoogleLoading] = useState(false);
     const [googlePending, setGooglePending] = useState(false);
     const [googleConfig, setGoogleConfig] = useState<GoogleAuthConfig | null>(null);
+    const googleExchangeInFlightRef = useRef(false);
+    const consumedGoogleResultKeyRef = useRef<string | null>(null);
     const { signIn, signInWithGoogle } = useAuth();
     const router = useRouter();
-    const Theme = Colors.dark;
+    const { colors: Theme } = useTheme();
+    const AuthStyles = useMemo(() => createAuthStyles(Theme), [Theme]);
+    const showAlert = useAppAlert();
     const googleClientIds = useMemo(() => ({
         expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || undefined,
         androidClientId: Constants.expoConfig?.extra?.GOOGLE_ANDROID_CLIENT_ID || undefined,
@@ -62,36 +67,76 @@ const LoginScreen = () => {
             return;
         }
 
-        if (googleResult.type === 'dismiss' || googleResult.type === 'cancel') {
+        const resultKey = [
+            googleResult.type,
+            googleResult.params?.state,
+            googleResult.params?.code,
+            googleResult.authentication?.idToken,
+            googleResult.authentication?.accessToken,
+        ].filter(Boolean).join(':');
+
+        if (resultKey && consumedGoogleResultKeyRef.current === resultKey) {
             setGooglePending(false);
             setGoogleLoading(false);
             return;
         }
 
+        if (googleExchangeInFlightRef.current) {
+            return;
+        }
+
+        consumedGoogleResultKeyRef.current = resultKey || `${googleResult.type}:${Date.now()}`;
+
+        if (googleResult.type === 'dismiss' || googleResult.type === 'cancel') {
+            setGooglePending(false);
+            setGoogleLoading(false);
+            googleExchangeInFlightRef.current = false;
+            return;
+        }
+
         let mounted = true;
+        googleExchangeInFlightRef.current = true;
+        setGooglePending(false);
         (async () => {
             try {
+                if (__DEV__) {
+                    console.info('[GoogleAuth][login] auth result received', {
+                        type: googleResult.type,
+                        hasCode: !!googleResult.params?.code,
+                        hasIdToken: !!googleResult.authentication?.idToken,
+                    });
+                }
                 const idToken = await resolveGoogleIdToken(googleResult, googleRequest);
                 if (!idToken) {
                     throw new Error('Google sign-in did not return an ID token.');
                 }
-                await signInWithGoogle(idToken);
+                if (__DEV__) {
+                    console.info('[GoogleAuth][login] token exchange completed, sending idToken to backend');
+                }
+                const sessionUser = await signInWithGoogle(idToken);
+                if (sessionUser?.profileCompleted === false) {
+                    router.replace('/auth/google-username');
+                }
             } catch (error: any) {
                 if (mounted) {
-                    Alert.alert('Google Sign-In Failed', error?.message || 'Please try again.');
+                    const message = isApiError(error)
+                        ? error.userMessage
+                        : (error?.message || 'Please try again.');
+                    showAlert('Google Sign-In Failed', message);
                 }
             } finally {
                 if (mounted) {
                     setGooglePending(false);
                     setGoogleLoading(false);
                 }
+                googleExchangeInFlightRef.current = false;
             }
         })();
 
         return () => {
             mounted = false;
         };
-    }, [googlePending, googleResult, googleRequest, signInWithGoogle]);
+    }, [googlePending, googleResult, googleRequest, router, showAlert, signInWithGoogle]);
 
     useEffect(() => {
         let mounted = true;
@@ -115,13 +160,13 @@ const LoginScreen = () => {
     const hasGoogleClientIds = !!(googleClientIds.expoClientId || googleClientIds.androidClientId || googleClientIds.iosClientId || googleClientIds.webClientId);
 
     const handleLogin = async () => {
-        if (!username || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+        if (!username.trim() || !password) {
+            showAlert('Validation Error', 'Please enter your username/email and password.');
             return;
         }
 
         if (password.length < 8) {
-            Alert.alert('Validation Error', 'Password must be at least 8 characters long');
+            showAlert('Validation Error', 'Password must be at least 8 characters long.');
             return;
         }
 
@@ -132,31 +177,41 @@ const LoginScreen = () => {
             const message = isApiError(error)
                 ? error.userMessage
                 : (error?.message || 'Check your credentials');
-            Alert.alert('Login Failed', message);
+            showAlert('Login Failed', message);
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleLogin = async () => {
+        if (googleLoading || googlePending) {
+            return;
+        }
+
         if (!isGoogleEnabled) {
-            Alert.alert('Google Sign-In Unavailable', 'Please try username/password login for now.');
+            showAlert('Google Sign-In Unavailable', 'Please try username/password login for now.');
             return;
         }
 
         if (!hasGoogleClientIds || !googleRequest) {
-            Alert.alert('Google Sign-In Unavailable', 'Google client IDs are missing from app configuration.');
+            showAlert('Google Sign-In Unavailable', 'Google client IDs are missing from app configuration.');
             return;
         }
 
         setGoogleLoading(true);
         setGooglePending(true);
         try {
+            if (__DEV__) {
+                console.info('[GoogleAuth][login] starting Google prompt');
+            }
             await googlePromptAsync();
         } catch (error: any) {
             setGooglePending(false);
             setGoogleLoading(false);
-            Alert.alert('Google Sign-In Failed', error.message || 'Please try again.');
+            const message = isApiError(error)
+                ? error.userMessage
+                : (error.message || 'Please try again.');
+            showAlert('Google Sign-In Failed', message);
         }
     };
 
@@ -247,9 +302,18 @@ const LoginScreen = () => {
 
                 <TouchableOpacity
                     style={AuthStyles.linkButton}
-                    onPress={() => router.push('/auth/verify-email')}
+                    onPress={() => router.push('/auth/forgot-password')}
                 >
-                    <Text style={AuthStyles.linkText}>Already signed up? <Text style={AuthStyles.linkHighlight}>Verify Email</Text></Text>
+                    <Text style={AuthStyles.linkText}>Forgot password? <Text style={AuthStyles.linkHighlight}>Reset it</Text></Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={AuthStyles.linkButton}
+                    onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=AR%20Car%20Showcase%20account%20help`)}
+                >
+                    <Text style={AuthStyles.linkText}>
+                        Account issues? Contact <Text style={AuthStyles.linkHighlight}>{SUPPORT_EMAIL}</Text>
+                    </Text>
                 </TouchableOpacity>
             </ScrollView>
         </KeyboardAvoidingView>

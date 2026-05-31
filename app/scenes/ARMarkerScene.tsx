@@ -11,27 +11,7 @@ import {
   ViroAnimations,
 } from '@reactvision/react-viro';
 import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
-import { getModelUrl } from '../services/blenderService';
-
-ViroARTrackingTargets.createTargets({
-  defaultMarker: {
-    source: require('../../assets/marker-image.png'),
-    orientation: 'Up',
-    physicalWidth: 0.2,
-  },
-});
-
-ViroAnimations.registerAnimations({
-  scaleIn: {
-    properties: { scaleX: 0.08, scaleY: 0.08, scaleZ: 0.08 },
-    duration: 500,
-    easing: 'bounce',
-  },
-  scaleOut: {
-    properties: { scaleX: 0, scaleY: 0, scaleZ: 0 },
-    duration: 200,
-  },
-});
+import { useModelSource } from '../../hooks/useModelSource';
 
 export default function ARMarkerScene(props?: any) {
   const [carScale, setCarScale] = useState(0.08);
@@ -66,6 +46,33 @@ export default function ARMarkerScene(props?: any) {
     setImageFound(false);
   }, []);
 
+  const mvp = props.sceneNavigator?.viroAppProps;
+  const modelPath = mvp?.modelPath || mvp?.model3D;
+  const cacheToken = mvp?.cacheToken;
+  const { source: modelSourceUri, loading: modelLoading } = useModelSource(modelPath, cacheToken);
+
+  React.useEffect(() => {
+    ViroARTrackingTargets.createTargets({
+      defaultMarker: {
+        source: require('../../assets/marker-image.png'),
+        orientation: 'Up',
+        physicalWidth: 0.2,
+      },
+    });
+
+    ViroAnimations.registerAnimations({
+      scaleIn: {
+        properties: { scaleX: 0.08, scaleY: 0.08, scaleZ: 0.08 },
+        duration: 500,
+        easing: 'bounce',
+      },
+      scaleOut: {
+        properties: { scaleX: 0, scaleY: 0, scaleZ: 0 },
+        duration: 200,
+      },
+    });
+  }, []);
+
   return (
     <ViroARScene>
       <ViroAmbientLight color="#ffffff" intensity={300} />
@@ -92,15 +99,8 @@ export default function ARMarkerScene(props?: any) {
           }}
         >
           <Viro3DObject
-            key={props.sceneNavigator?.viroAppProps?.modelPath || 'default'}
-            source={(() => {
-              const mvp = props.sceneNavigator?.viroAppProps;
-              const modelPath = mvp?.modelPath || mvp?.model3D;
-              if (modelPath) {
-                return { uri: getModelUrl(modelPath) };
-              }
-              return DEFAULT_MODEL_OBJ;
-            })()}
+            key={`${props.sceneNavigator?.viroAppProps?.modelPath || 'default'}-${cacheToken || '0'}`}
+            source={modelLoading ? DEFAULT_MODEL_OBJ : { uri: modelSourceUri }}
             type="GLB"
             resources={[]}
             scale={[1, 1, 1]}

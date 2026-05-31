@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../app/context/ThemeContext';
 import { useGLTF } from '@react-three/drei/native';
 import { router } from 'expo-router';
+import { preloadModel } from '../app/services/modelCache';
 
 interface CarCardProps {
     id: string;
@@ -23,7 +24,11 @@ const CarCard = React.memo(({ id, name, image, price, rating, featured, fullWidt
     useEffect(() => {
         if (modelPath) {
             console.log(`[PRELOAD] Preloading model: ${modelPath}`);
-            useGLTF.preload(modelPath);
+            void preloadModel(modelPath).then((resolvedPath) => {
+                useGLTF.preload(resolvedPath);
+            }).catch(() => {
+                useGLTF.preload(modelPath);
+            });
         }
     }, [modelPath]);
 

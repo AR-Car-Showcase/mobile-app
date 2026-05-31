@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { View, Text, Image, StyleSheet, Switch } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
 import { useAuth } from '../context/AuthContext';
+import { ScrollProvider } from '../context/ScrollContext';
 
 function CustomDrawerContent(props: any) {
     const { user, signOut } = useAuth();
@@ -67,9 +68,6 @@ function CustomDrawerContent(props: any) {
         </DrawerContentScrollView>
     );
 }
-
-import { ScrollProvider } from '../context/ScrollContext';
-
 export default function MainLayout() {
     const { colors } = useTheme();
 
@@ -157,6 +155,14 @@ export default function MainLayout() {
                         drawerLabel: 'Preferences',
                         drawerIcon: ({ color, size }) => <Ionicons name="options-outline" size={size} color={color} />,
                         headerShown: false,
+                    }}
+                />
+                <Drawer.Screen
+                    name="edit-profile"
+                    options={{
+                        title: 'Edit Profile',
+                        headerShown: false,
+                        drawerItemStyle: { display: 'none' },
                     }}
                 />
             </Drawer>

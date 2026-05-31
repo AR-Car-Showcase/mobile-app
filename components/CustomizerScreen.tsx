@@ -22,6 +22,7 @@ interface CustomizerScreenProps {
     viewType: 'exterior' | 'interior';
     autoRotate?: boolean;
     modelPath?: string;
+    cacheToken?: string | number;
 }
 
 interface SceneControllerProps {
@@ -33,7 +34,7 @@ interface SceneControllerProps {
     zoomRef: React.MutableRefObject<number>;
     viewType: 'exterior' | 'interior';
     autoRotate?: boolean;
-    modelPath?: string;
+    modelSource: string;
 }
 
 const LERP_FACTOR = 0.4;
@@ -55,12 +56,11 @@ function SceneController({
     zoomRef,
     viewType,
     autoRotate = false,
-    modelPath = DEFAULT_MODEL_URL,
+    modelSource,
 }: SceneControllerProps) {
     const { camera } = useThree();
     const groupRef = useRef<THREE.Group>(null);
-    const modelToLoad = useModelSource(modelPath);
-    const { scene } = useGLTF(modelToLoad) as any;
+    const { scene } = useGLTF(modelSource) as any;
     const { config } = useCarContext();
 
     const { materialsRef, originalColorsRef } = useSceneMaterials(scene, config.materials);
@@ -130,9 +130,11 @@ export default function CustomizerScreen({
     viewType,
     autoRotate,
     modelPath,
+    cacheToken,
 }: CustomizerScreenProps) {
     const [loading, setLoading] = useState(true);
     const bgColor = theme === 'dark' ? '#111' : '#f0f0f0';
+    const { source: modelSource, loading: modelLoading } = useModelSource(modelPath, modelPath ? cacheToken : undefined);
 
     const rotationYRef = useRef(rotationY);
     const rotationXRef = useRef(rotationX);
@@ -153,36 +155,40 @@ export default function CustomizerScreen({
 
     return (
         <View style={[styles.container, { backgroundColor: bgColor }]} {...panResponder.panHandlers}>
-            {loading && (
+            {(loading || modelLoading) && (
                 <View style={[styles.loader, { backgroundColor: bgColor }]}>
                     <ActivityIndicator size="large" color="#3b82f6" />
-                    <Text style={styles.loadingText}>Initializing Studio...</Text>
+                    <Text style={styles.loadingText}>
+                        {modelLoading ? 'Preparing model cache...' : 'Initializing Studio...'}
+                    </Text>
                 </View>
             )}
 
-            <Canvas
-                shadows
-                camera={{ position: [5, 2, 5], fov: 45 }}
-                gl={{ antialias: true, powerPreference: 'high-performance' }}
-            >
-                <color attach="background" args={[bgColor]} />
-                <ambientLight intensity={theme === 'dark' ? 0.5 : 0.8} />
-                <directionalLight position={[10, 10, 5]} intensity={1.5} castShadow />
-                <hemisphereLight args={['#ffffff', theme === 'dark' ? '#222' : '#888', 0.6]} />
-                <Suspense fallback={null}>
-                    <SceneController
-                        targetRotationY={rotationY}
-                        targetRotationX={rotationX}
-                        targetZoom={zoom}
-                        rotationYRef={rotationYRef}
-                        rotationXRef={rotationXRef}
-                        zoomRef={zoomRef}
-                        viewType={viewType}
-                        autoRotate={autoRotate}
-                        modelPath={modelPath}
-                    />
-                </Suspense>
-            </Canvas>
+            {!modelLoading && (
+                <Canvas
+                    shadows
+                    camera={{ position: [5, 2, 5], fov: 45 }}
+                    gl={{ antialias: true, powerPreference: 'high-performance' }}
+                >
+                    <color attach="background" args={[bgColor]} />
+                    <ambientLight intensity={theme === 'dark' ? 0.5 : 0.8} />
+                    <directionalLight position={[10, 10, 5]} intensity={1.5} castShadow />
+                    <hemisphereLight args={['#ffffff', theme === 'dark' ? '#222' : '#888', 0.6]} />
+                    <Suspense fallback={null}>
+                        <SceneController
+                            targetRotationY={rotationY}
+                            targetRotationX={rotationX}
+                            targetZoom={zoom}
+                            rotationYRef={rotationYRef}
+                            rotationXRef={rotationXRef}
+                            zoomRef={zoomRef}
+                            viewType={viewType}
+                            autoRotate={autoRotate}
+                            modelSource={modelSource}
+                        />
+                    </Suspense>
+                </Canvas>
+            )}
         </View>
     );
 }

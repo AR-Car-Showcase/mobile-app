@@ -10,7 +10,6 @@ import CustomizerScreen from '../../components/CustomizerScreen';
 import CustomizationDrawer from '../../components/CustomizationDrawer';
 import { generateCustomModel, getModelUrl } from '../services/blenderService';
 import { customizationsApi } from '../../api/customizations';
-import { ViroARSceneNavigator } from '@reactvision/react-viro';
 import ARHybridScene from '../scenes/ARHybridScene';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -40,11 +39,17 @@ function HybridContent() {
 
     const [generatedModelUrl, setGeneratedModelUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isRefreshingModel, setIsRefreshingModel] = useState(false);
+    const [modelCacheToken, setModelCacheToken] = useState<number>(() => {
+        const initialToken = params.modelCacheToken;
+        const parsed = typeof initialToken === 'string' ? Number.parseInt(initialToken, 10) : Number(initialToken);
+        return Number.isFinite(parsed) ? parsed : 0;
+    });
 
     const sceneRef = useRef<any>(null);
 
     React.useEffect(() => {
-        const loadInitialData = async () => {
+        const loadInitialData = async (forceRefresh = false) => {
             if (params.carData) {
                 try {
                     const carData = JSON.parse(params.carData as string);
@@ -55,11 +60,11 @@ function HybridContent() {
                 }
             }
             else if (params.id) {
-                const carData = await getCarById(params.id as string);
+                const carData = await getCarById(params.id as string, forceRefresh);
                 if (carData) setCar(carData);
                 console.log(`[HYBRID] Fetched car ${params.id} from API`);
             } else if (params.brand && params.model) {
-                const carData = await getCarByBrandAndModel(params.brand as string, params.model as string);
+                const carData = await getCarByBrandAndModel(params.brand as string, params.model as string, forceRefresh);
                 if (carData) setCar(carData);
                 console.log('[HYBRID] Fetched car data from API');
             }
@@ -87,6 +92,10 @@ function HybridContent() {
 
             if (params.initialMode) {
                 setViewMode(params.initialMode as '3D' | 'AR');
+            }
+
+            if (forceRefresh) {
+                setModelCacheToken(prev => prev + 1);
             }
         };
         loadInitialData();
@@ -157,6 +166,33 @@ function HybridContent() {
         }
     };
 
+    const handleRefreshModel = async () => {
+        setIsRefreshingModel(true);
+        try {
+            if (params.id) {
+                const carData = await getCarById(params.id as string, true);
+                if (carData) setCar(carData);
+            } else if (params.brand && params.model) {
+                const carData = await getCarByBrandAndModel(params.brand as string, params.model as string, true);
+                if (carData) setCar(carData);
+            } else if (params.carData) {
+                try {
+                    const carData = JSON.parse(params.carData as string);
+                    setCar(carData);
+                } catch (e) {
+                    console.error('[HYBRID] Failed to parse cached carData during refresh:', e);
+                }
+            }
+
+            setModelCacheToken(prev => prev + 1);
+            Alert.alert('Refreshed', 'Model cache was cleared and the latest version was requested from the server.');
+        } catch (error: any) {
+            Alert.alert('Refresh Failed', error.message || 'Could not refresh the model cache.');
+        } finally {
+            setIsRefreshingModel(false);
+        }
+    };
+
     const Theme = Colors.dark;
     const dynamicIconColor = backgroundTheme === 'dark' ? '#FFFFFF' : '#1A1A1A';
     const dynamicButtonBg = backgroundTheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
@@ -169,7 +205,7 @@ function HybridContent() {
                 </TouchableOpacity>
 
                 <View style={[styles.modelToggle, { flex: 1, marginHorizontal: 20, alignItems: 'center', backgroundColor: backgroundTheme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)' }]}>
-                    <Text style={[styles.headerTitle, { color: dynamicIconColor }]}>{car?.brand?.toUpperCase()} {car?.model?.toUpperCase()}</Text>
+                    <Text style={[styles.headerTitle, { color: dynamicIconColor, fontSize: 13 }]} numberOfLines={1} adjustsFontSizeToFit>{car?.brand?.toUpperCase()} {car?.model?.toUpperCase()}</Text>
                 </View>
 
                 <TouchableOpacity
@@ -177,6 +213,17 @@ function HybridContent() {
                     onPress={() => setViewMode(prev => prev === '3D' ? 'AR' : '3D')}
                 >
                     <Text style={[styles.toggleText, { fontSize: 13 }]}>{viewMode === '3D' ? 'AR MODE' : '3D MODE'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.toggleButton, { backgroundColor: dynamicButtonBg, marginLeft: 10, paddingVertical: 8, paddingHorizontal: 12 }]}
+                    onPress={handleRefreshModel}
+                    disabled={isRefreshingModel}
+                >
+                    {isRefreshingModel ? (
+                        <ActivityIndicator size="small" color={dynamicIconColor} />
+                    ) : (
+                        <Ionicons name="refresh" size={20} color={dynamicIconColor} />
+                    )}
                 </TouchableOpacity>
             </View>
 
@@ -243,21 +290,29 @@ function HybridContent() {
                         viewType={viewType}
                         autoRotate={autoRotate}
                         modelPath={car?.model3D || params.modelFile as string}
+                        cacheToken={modelCacheToken}
                     />
                 ) : (
                     <View style={styles.arContainer}>
-                        <ViroARSceneNavigator
-                            autofocus={true}
-                            initialScene={{ scene: ARHybridScene }}
-                            viroAppProps={{
-                                sceneRef,
-                                materials: config.materials,
-                                customModelUrl: generatedModelUrl,
-                                showCustomized: config.showCustomized,
-                                modelPath: car?.model3D || params.modelFile as string
-                            }}
-                            style={styles.arView}
-                        />
+                        {(() => {
+                            const { ViroARSceneNavigator } = require('@reactvision/react-viro');
+
+                            return (
+                                <ViroARSceneNavigator
+                                    autofocus={true}
+                                    initialScene={{ scene: ARHybridScene }}
+                                    viroAppProps={{
+                                        sceneRef,
+                                        materials: config.materials,
+                                        customModelUrl: generatedModelUrl,
+                                        showCustomized: config.showCustomized,
+                                        modelPath: car?.model3D || params.modelFile as string,
+                                        cacheToken: modelCacheToken
+                                    }}
+                                    style={styles.arView}
+                                />
+                            );
+                        })()}
                     </View>
                 )}
 

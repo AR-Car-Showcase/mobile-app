@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, Pressable, Modal, FlatList, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable, Modal, FlatList, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -10,10 +10,10 @@ import Animated, {
     Extrapolate,
     useSharedValue,
 } from 'react-native-reanimated';
-import { getAllCars, searchCars } from '../../api/cars';
 import { recommendationsApi } from '../../api/recommendations';
 import { Car } from '../../types/car';
 import { parsePrice, parseEngine, parsePower, parseMileage, parseTorque } from '../../utils/comparisonUtils';
+import { useCarCatalog } from '../context/CarCatalogContext';
 
 const SPEC_KEYS = [
     { key: 'priceRange', label: 'Price (Ex-Showroom)', type: 'price' },
@@ -41,6 +41,7 @@ export default function CompareScreen() {
     const { colors } = useTheme();
     const router = useRouter();
     const scrollY = useSharedValue(0);
+    const { cars: catalogCars, loading: catalogLoading, refreshing, refreshCatalog } = useCarCatalog();
 
     const scrollHandler = useAnimatedScrollHandler((event) => {
         scrollY.value = event.contentOffset.y;
@@ -79,33 +80,30 @@ export default function CompareScreen() {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [searchResults, setSearchResults] = useState<Car[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [loading, setLoading] = useState(false);
     const [aiNeed, setAiNeed] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
     const [aiInsight, setAiInsight] = useState('');
     const [aiError, setAiError] = useState('');
     const [aiModel, setAiModel] = useState('');
-
     useEffect(() => {
-        loadInitialCars();
-    }, []);
+        setSearchResults(catalogCars);
+    }, [catalogCars]);
 
-    const loadInitialCars = async () => {
-        setLoading(true);
-        const allCars = await getAllCars();
-        setSearchResults(allCars);
-        setLoading(false);
-    };
-
-    const handleSearch = async (text: string) => {
+    const handleSearch = (text: string) => {
         setSearchQuery(text);
-        if (text.length > 1) {
-            const results = await searchCars(text);
-            setSearchResults(results);
-        } else {
-            const allCars = await getAllCars();
-            setSearchResults(allCars);
+        const lower = text.toLowerCase();
+        if (lower.length <= 1) {
+            setSearchResults(catalogCars);
+            return;
         }
+
+        setSearchResults(
+            catalogCars.filter((car) =>
+                car.brand.toLowerCase().includes(lower) ||
+                car.model.toLowerCase().includes(lower) ||
+                car.bodyType.toLowerCase().includes(lower)
+            )
+        );
     };
 
     const addCar = (car: Car) => {
@@ -281,6 +279,9 @@ export default function CompareScreen() {
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
                 contentContainerStyle={{ paddingTop: TOTAL_HEADER_HEIGHT + 10 }}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={refreshCatalog} tintColor={colors.accent} />
+                }
             >
                 <View style={[styles.row, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
                     <View style={styles.labelCol} />
@@ -467,7 +468,7 @@ export default function CompareScreen() {
                         />
                     </View>
 
-                    {loading ? (
+                    {catalogLoading ? (
                         <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: 20 }} />
                     ) : (
                         <FlatList

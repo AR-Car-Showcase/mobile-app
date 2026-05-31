@@ -88,6 +88,7 @@ export default function VehicleDetailsScreen() {
     const [selectedImageType, setSelectedImageType] = useState<'exterior' | 'interior'>('exterior');
     const [isLiked, setIsLiked] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const [modelCacheToken, setModelCacheToken] = useState(0);
     const { isAuthenticated } = useAuth();
     const mainImageRef = useRef<any>(null);
     const thumbnailRef = useRef<any>(null);
@@ -173,13 +174,14 @@ export default function VehicleDetailsScreen() {
     const onRefresh = async () => {
         setRefreshing(true);
         await loadCarData(true);
+        setModelCacheToken(prev => prev + 1);
         setRefreshing(false);
     };
 
     const loadCarData = async (forceRefresh = false) => {
         if (params.id) {
             setLoading(true);
-            const carData = await getCarById(params.id as string);
+            const carData = await getCarById(params.id as string, forceRefresh);
             if (carData) {
                 setCar(carData);
                 fetchRecommendations(carData.id);
@@ -545,7 +547,8 @@ export default function VehicleDetailsScreen() {
                                 model: car.model,
                                 initialMode: 'AR',
                                 modelFile: car.model3D,
-                                carData: JSON.stringify(car)
+                                carData: JSON.stringify(car),
+                                modelCacheToken: modelCacheToken
                             }
                         })}
                     >
@@ -562,7 +565,8 @@ export default function VehicleDetailsScreen() {
                                 model: car.model,
                                 initialMode: '3D',
                                 modelFile: car.model3D,
-                                carData: JSON.stringify(car)
+                                carData: JSON.stringify(car),
+                                modelCacheToken: modelCacheToken
                             }
                         })}
                     >

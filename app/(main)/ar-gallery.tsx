@@ -1,42 +1,22 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Pressable } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Pressable, RefreshControl } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { carsApi } from '../../api/cars';
 import { Car } from '../../types/car';
+import { useCarCatalog } from '../context/CarCatalogContext';
 
 export default function ARGalleryScreen() {
     const { colors } = useTheme();
     const router = useRouter();
-    const [cars, setCars] = useState<Car[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { cars: catalogCars, loading, refreshing, refreshCatalog } = useCarCatalog();
+    const cars = useMemo(() => catalogCars.filter(car => car.model3D && !car.model3D.endsWith('car.glb')), [catalogCars]);
 
-    React.useEffect(() => {
-        const loadModels = async () => {
-            setLoading(true);
-            try {
-                const allCars = await carsApi.getAllCars(true);
-                const models = allCars.filter(car =>
-                    car.model3D &&
-                    !car.model3D.endsWith('car.glb')
-                );
-
-                if (models.length === 0) {
-                    console.warn('[GALLERY] No cars with 3D models found in API. Check backend mappings.');
-                }
-
-                setCars(models);
-            } catch (error) {
-                console.error('Failed to load AR models:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadModels();
-    }, []);
+    const onRefresh = async () => {
+        await refreshCatalog();
+    };
 
     const handleModelPress = (car: Car) => {
         router.push({
@@ -129,6 +109,9 @@ export default function ARGalleryScreen() {
                     contentContainerStyle={styles.gridContainer}
                     showsVerticalScrollIndicator={false}
                     columnWrapperStyle={styles.row}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+                    }
                     ListHeaderComponent={
                         <View style={{ marginBottom: 16 }}>
                             <View style={styles.headerContentContainer}>

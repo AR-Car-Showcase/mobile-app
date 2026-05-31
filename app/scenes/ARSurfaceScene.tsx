@@ -11,6 +11,7 @@ import {
   ViroMaterials,
 } from '@reactvision/react-viro';
 import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
+import { useModelSource } from '../../hooks/useModelSource';
 
 export default function ARSurfaceScene(props?: any) {
   const [carScale, setCarScale] = useState(0.08);
@@ -20,6 +21,10 @@ export default function ARSurfaceScene(props?: any) {
 
   const selectedColorCode =
     props.sceneNavigator?.viroAppProps?.selectedColorCode || '#FF0000';
+  const mvp = props.sceneNavigator?.viroAppProps;
+  const modelPath = mvp?.modelPath || mvp?.model3D;
+  const cacheToken = mvp?.cacheToken;
+  const { source: modelSourceUri, loading: modelLoading } = useModelSource(modelPath, cacheToken);
 
   useEffect(() => {
     ViroMaterials.createMaterials({
@@ -93,16 +98,8 @@ export default function ARSurfaceScene(props?: any) {
         rotation={carRotation}
       >
         <Viro3DObject
-          key={`${selectedColorCode}-${props.sceneNavigator?.viroAppProps?.modelPath || 'default'}`}
-          source={(() => {
-            const mvp = props.sceneNavigator?.viroAppProps;
-            const modelPath = mvp?.modelPath || mvp?.model3D;
-
-            if (modelPath && modelPath.startsWith('http')) {
-              return { uri: modelPath };
-            }
-            return DEFAULT_MODEL_OBJ;
-          })()}
+          key={`${selectedColorCode}-${props.sceneNavigator?.viroAppProps?.modelPath || 'default'}-${cacheToken || '0'}`}
+          source={modelLoading ? DEFAULT_MODEL_OBJ : { uri: modelSourceUri }}
           type="GLB"
           resources={[]}
           scale={[1, 1, 1]}

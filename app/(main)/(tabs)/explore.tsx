@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Dimensions, RefreshControl } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import CarCard from '../../../components/CarCard';
@@ -9,55 +9,47 @@ import Animated, {
     useAnimatedScrollHandler,
     useAnimatedStyle,
     interpolate,
-    Extrapolate,
-    useSharedValue
+    Extrapolation
 } from 'react-native-reanimated';
-import { getAllCars, getBodyTypes, getCarsByBodyType } from '../../../api/cars';
-import { Car } from '../../../types/car';
 import { useScrollContext } from '../../context/ScrollContext';
-import { useSmartScroll } from '../../hooks/useSmartScroll';
+import { useCarCatalog } from '../../context/CarCatalogContext';
 
 export default function ExploreScreen() {
     const { colors } = useTheme();
     const { scrollY } = useScrollContext();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState('All');
-    const [cars, setCars] = useState<Car[]>([]);
-    const [filteredCars, setFilteredCars] = useState<Car[]>([]);
-    const [filters, setFilters] = useState<string[]>(['All']);
-    const [refreshing, setRefreshing] = useState(false);
     const navigation = useNavigation<DrawerNavigationProp<any>>();
+    const { cars: catalogCars, loading, refreshing, refreshCatalog } = useCarCatalog();
 
     const scrollHandler = useAnimatedScrollHandler((event) => {
         scrollY.value = event.contentOffset.y;
     });
 
-    const searchBarStyle = useSmartScroll(scrollY, 120, 'up');
+    const searchBarStyle = useAnimatedStyle(() => {
+        return {
+            transform: [
+                {
+                    translateY: interpolate(
+                        scrollY.value,
+                        [0, 100],
+                        [0, -100],
+                        Extrapolation.CLAMP
+                    )
+                }
+            ],
+            opacity: interpolate(
+                scrollY.value,
+                [0, 100],
+                [1, 0],
+                Extrapolation.CLAMP
+            )
+        };
+    });
 
-    useEffect(() => {
-        loadCars();
-    }, []);
-
-    const onRefresh = async () => {
-        setRefreshing(true);
-        await loadCars(true);
-        setRefreshing(false);
-    };
-
-    const loadCars = async (forceRefresh = false) => {
-        const allCars = await getAllCars(forceRefresh);
-        const bodyTypes = await getBodyTypes();
-        setCars(allCars);
-        setFilteredCars(allCars);
-        setFilters(['All', ...bodyTypes]);
-    };
-
-    useEffect(() => {
-        filterCars();
-    }, [searchQuery, activeFilter, cars]);
-
-    const filterCars = () => {
-        let result = cars;
+    const filters = useMemo(() => ['All', ...Array.from(new Set(catalogCars.map((car) => car.bodyType))).sort()], [catalogCars]);
+    const filteredCars = useMemo(() => {
+        let result = catalogCars;
         if (activeFilter !== 'All') {
             result = result.filter(car => car.bodyType === activeFilter);
         }
@@ -68,7 +60,11 @@ export default function ExploreScreen() {
                 car.model.toLowerCase().includes(query)
             );
         }
-        setFilteredCars(result);
+        return result;
+    }, [catalogCars, searchQuery, activeFilter]);
+
+    const onRefresh = async () => {
+        await refreshCatalog();
     };
 
     return (
@@ -152,12 +148,14 @@ export default function ExploreScreen() {
                         image={item.images.exterior[0]}
                         price={item.priceRange}
                         rating={Number(item.rating) || 4.5}
-                        onPress={() => router.push(`/details?brand=${item.brand}&model=${item.model}`)}
+                        onPress={() => router.push({ pathname: '/details', params: { id: item.id } })}
                     />
                 )}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
-                        <Text style={{ color: colors.textSecondary }}>No cars found</Text>
+                        <Text style={{ color: colors.textSecondary }}>
+                            {loading ? 'Loading cars...' : 'No cars found'}
+                        </Text>
                     </View>
                 }
             />

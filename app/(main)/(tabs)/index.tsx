@@ -1,21 +1,17 @@
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { ViroARSceneNavigator } from '@reactvision/react-viro';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, RefreshControl } from 'react-native';
 import Animated, { useAnimatedScrollHandler, useAnimatedStyle, withTiming, useSharedValue, interpolate, Extrapolate } from 'react-native-reanimated';
 import { ARStyles, Colors, CommonStyles } from '../../../constants';
-import ARCustomMarkerWrapper from '../../scenes/ARCustomMarkerWrapper';
-import ARMarkerScene from '../../scenes/ARMarkerScene';
-import ARSurfaceScene from '../../scenes/ARSurfaceScene';
 import { useAuth } from '../../context/AuthContext';
 import LoginRequiredModal from '../../../components/LoginRequiredModal';
 import { useScrollContext } from '../../context/ScrollContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useCarCatalog } from '../../context/CarCatalogContext';
 import CarCard from '../../../components/CarCard';
-import { getAllCars, getCarsByBodyType } from '../../../api/cars';
 import { recommendationsApi } from '../../../api/recommendations';
 import { Car } from '../../../types/car';
 import { useSmartScroll } from '../../hooks/useSmartScroll';
@@ -27,15 +23,19 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const { scrollY } = useScrollContext();
   const [loginModalVisible, setLoginModalVisible] = useState(false);
+  const [showCachePopup, setShowCachePopup] = useState(false);
   const [pendingFeature, setPendingFeature] = useState('');
   const params = useLocalSearchParams();
   const [showAR, setShowAR] = useState(false);
   const [selectedMode, setSelectedMode] = useState<ARMode>('surface');
   const [customImage, setCustomImage] = useState<string | null>(null);
   const sceneRef = useRef<any>(null);
-  const [featuredCars, setFeaturedCars] = useState<Car[]>([]);
   const [recommendedCars, setRecommendedCars] = useState<Car[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
+  const { cars: allCars, loading: catalogLoading, refreshing, meta, refreshCatalog } = useCarCatalog();
+  const featuredCars = useMemo(
+    () => [...allCars].sort((a, b) => Number(b.rating) - Number(a.rating)).slice(0, 5),
+    [allCars]
+  );
 
   const navigation = useNavigation<DrawerNavigationProp<any>>();
   const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -48,54 +48,47 @@ export default function HomeScreen() {
       opacity: 1,
     };
   });
-
-
-  useEffect(() => {
-    loadCars();
-  }, []);
-
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadCars(true);
-    setRefreshing(false);
+    try {
+      await refreshCatalog();
+    } catch (e) {
+      console.error('[Home] Refresh failed', e);
+    }
   };
 
-  const loadCars = async (forceRefresh = false) => {
-    try {
-      const allCars = await getAllCars(forceRefresh);
+  useEffect(() => {
+    if (catalogLoading || allCars.length === 0) {
+      return;
+    }
 
-      const featured = [...allCars]
-        .sort((a, b) => Number(b.rating) - Number(a.rating))
-        .slice(0, 5);
-      setFeaturedCars(featured);
-
-      if (isAuthenticated && user && (
-        (user.favBrands && user.favBrands.length > 0) ||
-        (user.preferredBodyTypes && user.preferredBodyTypes.length > 0) ||
-        (user.preferredFuelTypes && user.preferredFuelTypes.length > 0) ||
-        (user.preferredTransmissions && user.preferredTransmissions.length > 0) ||
-        (user.maxBudget && user.maxBudget > 0)
-      )) {
-
-
+    const loadRecommendations = async () => {
+      if (
+        isAuthenticated &&
+        user &&
+        (
+          (user.favBrands && user.favBrands.length > 0) ||
+          (user.preferredBodyTypes && user.preferredBodyTypes.length > 0) ||
+          (user.preferredFuelTypes && user.preferredFuelTypes.length > 0) ||
+          (user.preferredTransmissions && user.preferredTransmissions.length > 0) ||
+          (user.maxBudget && user.maxBudget > 0)
+        )
+      ) {
         try {
           const recs = await recommendationsApi.getUserRecommendations();
           if (recs && recs.length > 0) {
             setRecommendedCars(recs);
-          } else {
-            setRecommendedCars(allCars.slice(0, 5).sort(() => 0.5 - Math.random()));
+            return;
           }
         } catch (e) {
-          console.error("[Home] Recommendation fetch failed, using fallback", e);
-          setRecommendedCars(allCars.slice(0, 5).sort(() => 0.5 - Math.random()));
+          console.error('[Home] Recommendation fetch failed, using fallback', e);
         }
-      } else {
-        setRecommendedCars(allCars.slice(0, 5).sort(() => 0.5 - Math.random()));
       }
-    } catch (e) {
-      console.error("Failed to load home data", e);
-    }
-  };
+
+      setRecommendedCars(allCars.slice(0, 5).sort(() => 0.5 - Math.random()));
+    };
+
+    void loadRecommendations();
+  }, [allCars, catalogLoading, isAuthenticated, user]);
 
   const handleModeSelect = (mode: ARMode) => {
     setSelectedMode(mode);
@@ -136,13 +129,13 @@ export default function HomeScreen() {
   const getARScene = (): any => {
     switch (selectedMode) {
       case 'surface':
-        return ARSurfaceScene;
+        return require('../../scenes/ARSurfaceScene').default;
       case 'marker':
-        return ARMarkerScene;
+        return require('../../scenes/ARMarkerScene').default;
       case 'custom':
-        return ARCustomMarkerWrapper;
+        return require('../../scenes/ARCustomMarkerWrapper').default;
       default:
-        return ARSurfaceScene;
+        return require('../../scenes/ARSurfaceScene').default;
     }
   };
 
@@ -171,6 +164,8 @@ export default function HomeScreen() {
   };
 
   if (showAR) {
+    const { ViroARSceneNavigator } = require('@reactvision/react-viro');
+
     return (
       <View style={CommonStyles.container}>
         <ViroARSceneNavigator
@@ -232,11 +227,39 @@ export default function HomeScreen() {
             <Ionicons name="menu" size={24} color={colors.text} />
           </Pressable>
           <Text style={[styles.homeTitle, { color: colors.text }]}>Home</Text>
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={() => setShowCachePopup(!showCachePopup)} style={{ position: 'relative', padding: 4 }}>
+            <Ionicons name="notifications-outline" size={24} color={colors.text} />
+            {refreshing && <View style={{ position: 'absolute', top: 4, right: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent }} />}
+          </Pressable>
         </View>
       </Animated.View>
 
+      {showCachePopup && (
+        <View style={[styles.cachePopup, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Text style={{ fontWeight: 'bold', color: colors.text }}>Data Status</Text>
+            <Pressable onPress={() => setShowCachePopup(false)}>
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name={refreshing ? "sync" : "checkmark-circle-outline"} size={16} color={colors.accent} />
+            <Text style={{ color: colors.textSecondary, fontSize: 13, flex: 1 }}>
+              {refreshing
+                ? 'Refreshing from server…'
+                : meta?.source === 'cache'
+                  ? meta.backgroundRefreshStarted
+                    ? 'Loaded from cache. Refreshing in background.'
+                    : 'Loaded from cache.'
+                  : 'Loaded fresh from server.'}
+            </Text>
+          </View>
+        </View>
+      )}
+
       <Animated.ScrollView
-        contentContainerStyle={{ paddingTop: 120, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
@@ -374,10 +397,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
     zIndex: 100,
     paddingTop: 50,
     paddingBottom: 10,
@@ -386,6 +405,21 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  cachePopup: {
+    position: 'absolute',
+    top: 90,
+    right: 16,
+    width: 250,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    zIndex: 200,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
   },
   headerContent: {
     flexDirection: 'row',

@@ -1,9 +1,9 @@
 import { StyleSheet, Platform } from 'react-native';
 import { Colors } from './Colors';
 
-const Theme = Colors.dark;
+type AuthTheme = typeof Colors.dark;
 
-export const AuthStyles = StyleSheet.create({
+export const createAuthStyles = (Theme: AuthTheme) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Theme.background,
@@ -101,3 +101,5 @@ export const AuthStyles = StyleSheet.create({
         borderColor: Theme.glassBorder,
     },
 });
+
+export const AuthStyles = createAuthStyles(Colors.dark);

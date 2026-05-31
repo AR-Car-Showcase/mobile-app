@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, ActivityIndicator, Linking, TouchableOpacity } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { apiClient } from '../../api/client';
+import { SUPPORT_EMAIL } from '../../api/session';
 
 const DRIVING_CONDITIONS = ['City', 'Highway', 'Mixed'];
 
@@ -17,7 +18,7 @@ interface CarOptions {
 
 export default function PreferencesScreen() {
     const { colors } = useTheme();
-    const { user, updateUser } = useAuth();
+    const { user, updatePreferences } = useAuth();
     const [loading, setLoading] = useState(true);
     const [options, setOptions] = useState<CarOptions>({
         brands: [],
@@ -25,8 +26,6 @@ export default function PreferencesScreen() {
         fuelTypes: [],
         transmissionTypes: []
     });
-
-    // Initialize state
     const [selectedBrands, setSelectedBrands] = useState<string[]>(user?.favBrands || []);
     const [selectedBodyTypes, setSelectedBodyTypes] = useState<string[]>(user?.preferredBodyTypes || []);
     const [selectedFuelTypes, setSelectedFuelTypes] = useState<string[]>(user?.preferredFuelTypes || []);
@@ -34,11 +33,7 @@ export default function PreferencesScreen() {
     const [drivingCondition, setDrivingCondition] = useState(user?.drivingCondition || '');
     const [maxBudget, setMaxBudget] = useState(user?.maxBudget ? user.maxBudget.toString() : '');
 
-    useEffect(() => {
-        fetchOptions();
-    }, []);
-
-    const fetchOptions = async () => {
+    const fetchOptions = useCallback(async () => {
         try {
             console.log('[Preferences] Fetching car options metadata...');
             const data = await apiClient.get<CarOptions>('/cars/options');
@@ -55,7 +50,20 @@ export default function PreferencesScreen() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        if (user) {
+            setSelectedBrands(user.favBrands || []);
+            setSelectedBodyTypes(user.preferredBodyTypes || []);
+            setSelectedFuelTypes(user.preferredFuelTypes || []);
+            setSelectedTransmissions(user.preferredTransmissions || []);
+            setDrivingCondition(user.drivingCondition || '');
+            setMaxBudget(user.maxBudget ? user.maxBudget.toString() : '');
+        }
+
+        fetchOptions();
+    }, [user, fetchOptions]);
 
     const toggleSelection = (item: string, list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>) => {
         if (list.includes(item)) {
@@ -79,16 +87,10 @@ export default function PreferencesScreen() {
             };
 
             console.log('[Preferences] Saving preferences:', payload);
-            await apiClient.put('/user/profile', payload);
-
-            if (user) {
-                await updateUser({
-                    ...user,
-                    ...payload
-                });
-            }
+            const updatedUser = await updatePreferences(payload);
 
             Alert.alert('Success', 'Preferences saved successfully!');
+            console.log('[Preferences] Updated profile user:', updatedUser?.username);
             router.back();
         } catch (error) {
             Alert.alert('Error', 'Failed to save preferences. Please try again.');
@@ -142,7 +144,7 @@ export default function PreferencesScreen() {
                 <Pressable onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </Pressable>
-                <Text style={[styles.title, { color: colors.text }]}>Personalize Recommendations</Text>
+                <Text style={[styles.title, { color: colors.text }]}>Car Preferences</Text>
             </View>
 
             <ScrollView
@@ -200,6 +202,15 @@ export default function PreferencesScreen() {
                 >
                     <Text style={styles.saveButtonText}>Apply Preferences</Text>
                 </Pressable>
+
+                <TouchableOpacity
+                    onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=AR%20Car%20Showcase%20account%20help`)}
+                    style={styles.supportLink}
+                >
+                    <Text style={[styles.supportText, { color: colors.textSecondary }]}>
+                        Need help with your account? Contact <Text style={{ color: colors.accent }}>{SUPPORT_EMAIL}</Text>
+                    </Text>
+                </TouchableOpacity>
             </ScrollView>
         </View>
     );
@@ -264,4 +275,26 @@ const styles = StyleSheet.create({
     },
     saveButtonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
     loadingText: { fontSize: 14 },
+    avatarPicker: {
+        alignSelf: 'center',
+        marginBottom: 18,
+    },
+    avatarPreview: {
+        width: 96,
+        height: 96,
+        borderRadius: 48,
+    },
+    avatarHint: {
+        marginTop: 6,
+        fontSize: 12,
+        textAlign: 'center',
+    },
+    supportLink: {
+        marginTop: 12,
+        alignItems: 'center',
+    },
+    supportText: {
+        fontSize: 12,
+        textAlign: 'center',
+    }
 });

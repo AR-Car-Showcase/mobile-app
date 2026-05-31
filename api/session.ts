@@ -1,16 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 const ACCESS_TOKEN_KEY = 'auth.accessToken';
 const REFRESH_TOKEN_KEY = 'auth.refreshToken';
 const USER_KEY = 'auth.user';
 
-const API_BASE_URL = Constants.expoConfig?.extra?.API_URL ?? '';
+const API_BASE_URL =
+    process.env.EXPO_PUBLIC_API_URL ||
+    Constants.expoConfig?.extra?.API_URL ||
+    process.env.API_URL ||
+    '';
 const AUTH_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
 const GOOGLE_CONFIG_URL = `${API_BASE_URL}/auth/google/config`;
 const USE_SECURE_STORE = Platform.OS !== 'web';
+export const SUPPORT_EMAIL =
+    process.env.EXPO_PUBLIC_SUPPORT_EMAIL ||
+    Constants.expoConfig?.extra?.SUPPORT_EMAIL ||
+    'support@arcarshowcase.local';
 
 async function setValue(key: string, value: string, secure: boolean) {
     if (secure && USE_SECURE_STORE) {
@@ -132,6 +140,7 @@ export interface GoogleAuthConfig {
     issuerUri?: string;
     autoLinkByEmail?: boolean;
     clientId?: string;
+    clientIds?: string[];
 }
 
 export async function fetchGoogleAuthConfig(): Promise<GoogleAuthConfig | null> {

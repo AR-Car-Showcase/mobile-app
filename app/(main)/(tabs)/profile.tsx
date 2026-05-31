@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Pressable, Linking, RefreshControl } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,13 +9,11 @@ import { DrawerNavigationProp } from '@react-navigation/drawer';
 import Animated, {
     useAnimatedScrollHandler,
     useAnimatedStyle,
-    interpolate,
-    Extrapolate
 } from 'react-native-reanimated';
 
-import { useSmartScroll } from '../../hooks/useSmartScroll';
 import LoginRequiredModal from '../../../components/LoginRequiredModal';
 import { useFocusEffect } from '@react-navigation/native';
+import { SUPPORT_EMAIL } from '../../../api/session';
 
 export default function ProfileScreen() {
     const { user, signOut, fetchProfile } = useAuth();
@@ -23,15 +21,24 @@ export default function ProfileScreen() {
     const { scrollY } = useScrollContext();
     const navigation = useNavigation<DrawerNavigationProp<any>>();
     const [showLoginModal, setShowLoginModal] = React.useState(false);
+    const [refreshing, setRefreshing] = React.useState(false);
+    const userId = user?.id;
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchProfile();
+        setRefreshing(false);
+    };
 
     useFocusEffect(
         React.useCallback(() => {
-            if (!user) {
+            if (!userId) {
                 setShowLoginModal(true);
-            } else {
-                fetchProfile();
+                return;
             }
-        }, [!!user])
+
+            void fetchProfile();
+        }, [userId, fetchProfile])
     );
 
     const scrollHandler = useAnimatedScrollHandler((event) => {
@@ -87,6 +94,7 @@ export default function ProfileScreen() {
                 contentContainerStyle={styles.scrollContent}
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
             >
                 <View style={styles.header}>
                     {user.profilePic ? (
@@ -96,9 +104,17 @@ export default function ProfileScreen() {
                             <Ionicons name="person" size={40} color={colors.textSecondary} />
                         </View>
                     )}
-                    <Text style={[styles.username, { color: colors.text }]}>{user.username}</Text>
-                    <Text style={[styles.email, { color: colors.textSecondary }]}>{user.email}</Text>
-                    {user.phoneNumber && <Text style={[styles.phone, { color: colors.textSecondary }]}>{user.phoneNumber}</Text>}
+                    <View style={styles.profileIdentity}>
+                        {user.displayName ? (
+                            <Text style={[styles.displayName, { color: colors.textSecondary }]} numberOfLines={1}>{user.displayName}</Text>
+                        ) : null}
+                        <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>{user.username}</Text>
+                        {user.bio ? (
+                            <Text style={[styles.bio, { color: colors.textSecondary }]} numberOfLines={3}>{user.bio}</Text>
+                        ) : null}
+                        <Text style={[styles.email, { color: colors.textSecondary }]} numberOfLines={1}>{user.email}</Text>
+                        {user.phoneNumber && <Text style={[styles.phone, { color: colors.textSecondary }]} numberOfLines={1}>{user.phoneNumber}</Text>}
+                    </View>
                 </View>
 
                 <View style={[styles.statsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -115,16 +131,37 @@ export default function ProfileScreen() {
                 <View style={styles.menuContainer}>
                     <TouchableOpacity
                         style={[styles.menuItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                        onPress={() => router.push('/preferences')}
+                        onPress={() => router.push('/edit-profile')}
                     >
-                        <Ionicons name="options-outline" size={24} color={colors.text} />
-                        <Text style={[styles.menuText, { color: colors.text }]}>Preferences</Text>
+                        <Ionicons name="person-outline" size={24} color={colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>Edit Profile</Text>
                         <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.menuItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <TouchableOpacity
+                        style={[styles.menuItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        onPress={() => router.push('/preferences')}
+                    >
+                        <Ionicons name="options-outline" size={24} color={colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>Car Preferences</Text>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.menuItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        onPress={() => router.push('/auth/change-password')}
+                    >
+                        <Ionicons name="key-outline" size={24} color={colors.text} />
+                        <Text style={[styles.menuText, { color: colors.text }]}>Change Password</Text>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.menuItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                        onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=AR%20Car%20Showcase%20support`)}
+                    >
                         <Ionicons name="settings-outline" size={24} color={colors.text} />
-                        <Text style={[styles.menuText, { color: colors.text }]}>Settings</Text>
+                        <Text style={[styles.menuText, { color: colors.text }]}>Help & Support</Text>
                         <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                     </TouchableOpacity>
 
@@ -183,14 +220,15 @@ const styles = StyleSheet.create({
         paddingBottom: 100,
     },
     header: {
+        flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 32,
+        gap: 18,
     },
     avatar: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        marginBottom: 16,
+        width: 92,
+        height: 92,
+        borderRadius: 46,
         borderWidth: 2,
     },
     avatarPlaceholder: {
@@ -199,9 +237,25 @@ const styles = StyleSheet.create({
         borderStyle: 'dashed',
         borderWidth: 1,
     },
+    profileIdentity: {
+        flex: 1,
+        minWidth: 0,
+        alignItems: 'flex-start',
+    },
     username: {
         fontSize: 24,
         fontWeight: 'bold',
+    },
+    displayName: {
+        fontSize: 14,
+        marginBottom: 2,
+    },
+    bio: {
+        fontSize: 13,
+        marginTop: 8,
+        textAlign: 'left',
+        lineHeight: 18,
+        maxWidth: '100%',
     },
     email: {
         fontSize: 14,

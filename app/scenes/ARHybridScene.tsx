@@ -9,7 +9,8 @@ import {
     ViroQuad,
     ViroMaterials,
 } from '@reactvision/react-viro';
-import { resolveModelSourceForAR } from '../../hooks/useModelSource';
+import { useModelSource } from '../../hooks/useModelSource';
+import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
 
 type Triplet = [number, number, number];
 
@@ -19,6 +20,7 @@ interface ARSceneViroAppProps {
     sceneRef?: React.MutableRefObject<SceneControls | null>;
     showCustomized?: boolean;
     modelPath?: string;
+    cacheToken?: string | number;
 }
 
 interface SceneControls {
@@ -59,7 +61,9 @@ export default function ARHybridScene(props?: any) {
 
     const navigator = props.arSceneNavigator || props.sceneNavigator;
     const viroAppProps: ARSceneViroAppProps = navigator?.viroAppProps || {};
-    const { materials, customModelUrl, sceneRef, showCustomized, modelPath } = viroAppProps;
+    const { materials, customModelUrl, sceneRef, showCustomized, modelPath, cacheToken } = viroAppProps;
+    const targetModelPath = showCustomized && customModelUrl ? customModelUrl : modelPath;
+    const { source: modelSourceUri, loading: modelLoading } = useModelSource(targetModelPath, cacheToken);
 
     useEffect(() => {
         const materialDefinitions: Record<string, any> = {};
@@ -132,8 +136,7 @@ export default function ARHybridScene(props?: any) {
         setAnchorPosition(dragToPos);
     }, []);
 
-    const modelSource = resolveModelSourceForAR(modelPath, showCustomized, customModelUrl);
-    const modelKey = `${showCustomized}-${customModelUrl || JSON.stringify(materials)}-${modelPath}`;
+    const modelKey = `${showCustomized}-${customModelUrl || JSON.stringify(materials)}-${modelPath}-${cacheToken || ''}`;
     const appliedMaterials = showCustomized && !customModelUrl && materials
         ? Object.keys(materials)
         : undefined;
@@ -158,13 +161,13 @@ export default function ARHybridScene(props?: any) {
             >
                 <Viro3DObject
                     key={modelKey}
-                    source={modelSource}
+                    source={modelLoading ? DEFAULT_MODEL_OBJ : { uri: modelSourceUri }}
                     type="GLB"
                     materials={appliedMaterials}
                     resources={[]}
                     scale={[1, 1, 1]}
                     lightReceivingBitMask={1}
-                    onLoadStart={() => console.log(`[AR] ⏳ Loading model: ${modelPath || 'default'}`)}
+                    onLoadStart={() => console.log(`[AR] ⏳ Loading model: ${modelSourceUri || 'default'}`)}
                     onLoadEnd={() => console.log('[SUCCESS] ✅ 3D Model loaded successfully in AR')}
                     onError={(event: any) => console.warn('[AR] ❌ Failed to load model:', event.nativeEvent.error)}
                 />

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Car, CarImages } from '../types/car';
 import { CarData, CarImage } from '../types/api';
 import { ApiErrorCode, isApiError } from '../types/errors';
@@ -78,39 +79,197 @@ export const transformCarData = (carData: CarData): Car => {
     };
 };
 
-let cachedCars: Car[] | null = null;
+const CAR_CACHE_KEY = 'carshowcase.cachedCars.v1';
+const CAR_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
 
-export const carsApi = {
-    getAllCars: async (forceRefresh = false): Promise<Car[]> => {
-        if (!forceRefresh && cachedCars) {
-            return cachedCars;
+interface CachedCarsPayload {
+    savedAt: number;
+    cars: Car[];
+}
+
+export interface CarsFetchMeta {
+    source: 'network' | 'cache';
+    backgroundRefreshStarted: boolean;
+    cacheAgeMs?: number;
+}
+
+let cachedCars: Car[] | null = null;
+let cachedCarsPromise: Promise<Car[]> | null = null;
+
+function isCacheFresh(savedAt?: number): boolean {
+    if (!savedAt) {
+        return false;
+    }
+
+    return Date.now() - savedAt < CAR_CACHE_MAX_AGE_MS;
+}
+
+async function readPersistedCache(): Promise<CachedCarsPayload | null> {
+    try {
+        const raw = await AsyncStorage.getItem(CAR_CACHE_KEY);
+        if (!raw) {
+            return null;
         }
 
-        try {
-            const data = await apiClient.get<CarData[]>('/cars/allcars');
-            const adapted = data.map(transformCarData);
-            cachedCars = adapted;
-            return adapted;
-        } catch (error) {
+        const parsed = JSON.parse(raw) as CachedCarsPayload;
+        if (!parsed?.cars || !Array.isArray(parsed.cars)) {
+            return null;
+        }
+
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
+async function writePersistedCache(cars: Car[]): Promise<void> {
+    const payload: CachedCarsPayload = {
+        savedAt: Date.now(),
+        cars,
+    };
+
+    cachedCars = cars;
+    try {
+        await AsyncStorage.setItem(CAR_CACHE_KEY, JSON.stringify(payload));
+    } catch {
+        // Best-effort cache only.
+    }
+}
+
+async function fetchCarsFromServer(): Promise<Car[]> {
+    const data = await apiClient.get<CarData[]>('/cars/allcars');
+    const adapted = data.map(transformCarData);
+    await writePersistedCache(adapted);
+    return adapted;
+}
+
+function scheduleBackgroundRefresh() {
+    if (cachedCarsPromise) {
+        return;
+    }
+
+    cachedCarsPromise = fetchCarsFromServer()
+        .then((cars) => cars)
+        .catch((error) => {
             if (isApiError(error)) {
-                console.error(`[API] Failed to fetch cars (${error.code}):`, error.userMessage);
+                console.error(`[API] Background refresh failed (${error.code}):`, error.userMessage);
             }
-            if (cachedCars) return cachedCars;
-            throw error;
+
+            return cachedCars || [];
+        })
+        .finally(() => {
+            cachedCarsPromise = null;
+        });
+}
+
+async function getCachedCarsWithMeta(forceRefresh = false): Promise<{ cars: Car[]; meta: CarsFetchMeta } | null> {
+    if (!forceRefresh && cachedCars) {
+        scheduleBackgroundRefresh();
+        return {
+            cars: cachedCars,
+            meta: {
+                source: 'cache',
+                backgroundRefreshStarted: true,
+            },
+        };
+    }
+
+    if (!forceRefresh && !cachedCars) {
+        const persisted = await readPersistedCache();
+        if (persisted?.cars?.length) {
+            cachedCars = persisted.cars;
+            const cacheAgeMs = persisted.savedAt ? Date.now() - persisted.savedAt : undefined;
+            const backgroundRefreshStarted = isCacheFresh(persisted.savedAt);
+            if (backgroundRefreshStarted) {
+                scheduleBackgroundRefresh();
+            }
+
+            return {
+                cars: persisted.cars,
+                meta: {
+                    source: 'cache',
+                    backgroundRefreshStarted,
+                    cacheAgeMs,
+                },
+            };
+        }
+    }
+
+    return null;
+}
+
+export const carsApi = {
+    getAllCarsWithMeta: async (forceRefresh = false): Promise<{ cars: Car[]; meta: CarsFetchMeta }> => {
+        const cached = await getCachedCarsWithMeta(forceRefresh);
+        if (cached) {
+            return cached;
+        }
+
+        const cars = await carsApi.getAllCars(forceRefresh);
+        return {
+            cars,
+            meta: {
+                source: 'network',
+                backgroundRefreshStarted: false,
+            },
+        };
+    },
+
+    getAllCars: async (forceRefresh = false): Promise<Car[]> => {
+        const cached = await getCachedCarsWithMeta(forceRefresh);
+        if (cached) {
+            return cached.cars;
+        }
+
+        if (!forceRefresh && cachedCarsPromise) {
+            return cachedCars || await cachedCarsPromise;
+        }
+
+        const fetchPromise = (async () => {
+            try {
+                return await fetchCarsFromServer();
+            } catch (error) {
+                if (isApiError(error)) {
+                    console.error(`[API] Failed to fetch cars (${error.code}):`, error.userMessage);
+                }
+                if (cachedCars) return cachedCars;
+                if (!forceRefresh) {
+                    const persisted = await readPersistedCache();
+                    if (persisted?.cars?.length) {
+                        cachedCars = persisted.cars;
+                        return persisted.cars;
+                    }
+                }
+                throw error;
+            }
+        })();
+
+        cachedCarsPromise = fetchPromise;
+        try {
+            return await fetchPromise;
+        } finally {
+            cachedCarsPromise = null;
         }
     },
 
     getCarsByBodyType: async (bodyType: string): Promise<Car[]> => {
-        const data = await apiClient.get<CarData[]>(`/cars/body-type/${bodyType}`);
-        return data.map(transformCarData);
+        const allCars = await carsApi.getAllCars();
+        return allCars.filter(car => car.bodyType.toLowerCase() === bodyType.toLowerCase());
     },
 
     getCarsByFuelType: async (fuelType: string): Promise<Car[]> => {
-        const data = await apiClient.get<CarData[]>(`/cars/fuel-type/${fuelType}`);
-        return data.map(transformCarData);
+        const allCars = await carsApi.getAllCars();
+        return allCars.filter(car => car.fuelType.toLowerCase() === fuelType.toLowerCase());
     },
 
-    getCarById: async (id: string | number): Promise<Car | null> => {
+    getCarById: async (id: string | number, forceRefresh = false): Promise<Car | null> => {
+        if (!forceRefresh && cachedCars) {
+            const fromCache = cachedCars.find(car => String(car.id) === String(id));
+            if (fromCache) {
+                return fromCache;
+            }
+        }
+
         try {
             const data = await apiClient.get<CarData>(`/cars/car/${id}`);
             return transformCarData(data);
@@ -158,14 +317,25 @@ export const carsApi = {
         return allCars.filter(car => {
             return car.minPriceLakhs >= minPrice && car.maxPriceLakhs <= maxPrice;
         });
-    }
+    },
+
+    invalidateCache: async (): Promise<void> => {
+        cachedCars = null;
+        cachedCarsPromise = null;
+        try {
+            await AsyncStorage.removeItem(CAR_CACHE_KEY);
+        } catch {
+            // Best-effort cache invalidation.
+        }
+    },
 };
 
 export const {
-    getAllCars,
-    getCarById,
-    getCarsByBodyType,
-    getCarsByFuelType,
+  getAllCars,
+  getAllCarsWithMeta,
+  getCarById,
+  getCarsByBodyType,
+  getCarsByFuelType,
     getCarByBrandAndModel,
     searchCars,
     getBodyTypes,

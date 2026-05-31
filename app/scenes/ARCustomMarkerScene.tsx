@@ -11,23 +11,12 @@ import {
   ViroAnimations,
 } from '@reactvision/react-viro';
 import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
+import { useModelSource } from '../../hooks/useModelSource';
 
 interface ARCustomMarkerSceneProps {
   customImageUri: string | null;
   sceneNavigator?: any;
 }
-
-ViroAnimations.registerAnimations({
-  scaleIn: {
-    properties: { scaleX: 0.08, scaleY: 0.08, scaleZ: 0.08 },
-    duration: 500,
-    easing: 'bounce',
-  },
-  scaleOut: {
-    properties: { scaleX: 0, scaleY: 0, scaleZ: 0 },
-    duration: 200,
-  },
-});
 
 export default function ARCustomMarkerScene({ customImageUri, sceneNavigator }: ARCustomMarkerSceneProps) {
   const [carScale, setCarScale] = useState(0.08);
@@ -35,6 +24,24 @@ export default function ARCustomMarkerScene({ customImageUri, sceneNavigator }: 
   const [imageFound, setImageFound] = useState(false);
   const [animationRun, setAnimationRun] = useState(false);
   const [targetRegistered, setTargetRegistered] = useState(false);
+  const mvp = sceneNavigator?.viroAppProps;
+  const modelPath = mvp?.modelPath || mvp?.model3D;
+  const cacheToken = mvp?.cacheToken;
+  const { source: modelSourceUri, loading: modelLoading } = useModelSource(modelPath, cacheToken);
+
+  useEffect(() => {
+    ViroAnimations.registerAnimations({
+      scaleIn: {
+        properties: { scaleX: 0.08, scaleY: 0.08, scaleZ: 0.08 },
+        duration: 500,
+        easing: 'bounce',
+      },
+      scaleOut: {
+        properties: { scaleX: 0, scaleY: 0, scaleZ: 0 },
+        duration: 200,
+      },
+    });
+  }, []);
 
   useEffect(() => {
     if (customImageUri) {
@@ -116,15 +123,8 @@ export default function ARCustomMarkerScene({ customImageUri, sceneNavigator }: 
           }}
         >
           <Viro3DObject
-            key={sceneNavigator?.viroAppProps?.modelPath || 'default'}
-            source={(() => {
-              const mvp = sceneNavigator?.viroAppProps;
-              const modelPath = mvp?.modelPath || mvp?.model3D;
-              if (modelPath && modelPath.startsWith('http')) {
-                return { uri: modelPath };
-              }
-              return DEFAULT_MODEL_OBJ;
-            })()}
+            key={`${sceneNavigator?.viroAppProps?.modelPath || 'default'}-${cacheToken || '0'}`}
+            source={modelLoading ? DEFAULT_MODEL_OBJ : { uri: modelSourceUri }}
             type="GLB"
             resources={[]}
             scale={[1, 1, 1]}

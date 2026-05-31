@@ -1,13 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, RefreshControl, ScrollView } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { useNavigation } from 'expo-router';
+import { useNavigation, router } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { likeService, Car } from '../../services/likeService';
 import CarCard from '../../../components/CarCard';
-import { useFocusEffect } from '@react-navigation/native';
 
 export default function SavedScreen() {
     const { colors } = useTheme();
@@ -15,17 +14,7 @@ export default function SavedScreen() {
     const { isAuthenticated } = useAuth();
     const [likedCars, setLikedCars] = React.useState<Car[]>([]);
     const [loading, setLoading] = React.useState(true);
-
-    useFocusEffect(
-        React.useCallback(() => {
-            if (isAuthenticated) {
-                fetchLikedCars();
-            } else {
-                setLikedCars([]);
-                setLoading(false);
-            }
-        }, [isAuthenticated])
-    );
+    const [refreshing, setRefreshing] = React.useState(false);
 
     const fetchLikedCars = async () => {
         try {
@@ -36,7 +25,22 @@ export default function SavedScreen() {
             console.error('[SavedScreen] Failed to fetch liked cars:', error);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    React.useEffect(() => {
+        if (isAuthenticated) {
+            void fetchLikedCars();
+        } else {
+            setLikedCars([]);
+            setLoading(false);
+        }
+    }, [isAuthenticated]);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await fetchLikedCars();
     };
 
     return (
@@ -60,17 +64,23 @@ export default function SavedScreen() {
                         <ActivityIndicator size="large" color={colors.accent} />
                     </View>
                 ) : !isAuthenticated ? (
-                    <View style={styles.emptyState}>
+                    <ScrollView 
+                        contentContainerStyle={styles.emptyState}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+                    >
                         <Ionicons name="lock-closed-outline" size={80} color={colors.textTertiary} />
                         <Text style={[styles.text, { color: colors.text }]}>Login Required</Text>
                         <Text style={[styles.subtext, { color: colors.textSecondary }]}>Log in to view your favorite cars.</Text>
-                    </View>
+                    </ScrollView>
                 ) : likedCars.length === 0 ? (
-                    <View style={styles.emptyState}>
+                    <ScrollView 
+                        contentContainerStyle={styles.emptyState}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+                    >
                         <Ionicons name="heart-outline" size={80} color={colors.textTertiary} />
                         <Text style={[styles.text, { color: colors.text }]}>No Saved Cars</Text>
                         <Text style={[styles.subtext, { color: colors.textSecondary }]}>Your favorites will appear here.</Text>
-                    </View>
+                    </ScrollView>
                 ) : (
                     <FlatList
                         data={likedCars}
@@ -84,11 +94,15 @@ export default function SavedScreen() {
                                     price={item.priceRange}
                                     featured={true}
                                     fullWidth={true}
+                                    onPress={() => router.push({ pathname: '/details', params: { id: item.id } })}
                                 />
                             </View>
                         )}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+                        }
                     />
                 )}
             </View>
@@ -132,7 +146,7 @@ const styles = StyleSheet.create({
         paddingBottom: 100,
     },
     emptyState: {
-        flex: 1,
+        flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 40,

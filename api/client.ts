@@ -2,7 +2,11 @@ import Constants from 'expo-constants';
 import { ApiError, ApiErrorCode, getErrorCode, createNetworkError } from '../types/errors';
 import { getAccessToken, refreshAuthSession } from './session';
 
-const getBaseUrl = () => Constants.expoConfig?.extra?.API_URL;
+const getBaseUrl = () =>
+    process.env.EXPO_PUBLIC_API_URL ||
+    Constants.expoConfig?.extra?.API_URL ||
+    process.env.API_URL ||
+    '';
 
 export const BASE_URL = getBaseUrl();
 
@@ -18,7 +22,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 function isPublicAuthUrl(url: string): boolean {
-    return /\/login(?:\?|$)|\/refresh(?:\?|$)|\/logout(?:\?|$)|\/api\/auth\/signup(?:\?|$)|\/api\/auth\/verify-email(?:\?|$)|\/api\/auth\/resend-verification(?:\?|$)/.test(url);
+    return /\/login(?:\?|$)|\/refresh(?:\?|$)|\/logout(?:\?|$)|\/api\/auth\/signup(?:\?|$)|\/api\/auth\/verify-email(?:\?|$)|\/api\/auth\/resend-verification(?:\?|$)|\/api\/auth\/forgot-password(?:\?|$)|\/api\/auth\/resend-password-reset(?:\?|$)|\/api\/auth\/reset-password(?:\?|$)/.test(url);
 }
 
 function buildUrl(endpoint: string, params?: Record<string, string | number | boolean>): string {
@@ -69,6 +73,8 @@ async function performRequest<T>(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+    console.log(`[API Request] ${options.method || 'GET'} ${url}`);
+
     try {
         const response = await fetch(url, {
             ...options,
@@ -76,6 +82,7 @@ async function performRequest<T>(
         });
 
         if (!response.ok) {
+            console.warn(`[API Response] ${options.method || 'GET'} ${url} - Failed with status ${response.status}`);
             if (response.status === 401 && allowRefreshRetry && !isPublicAuthUrl(url)) {
                 const refreshed = await attemptTokenRefresh();
                 if (refreshed) {

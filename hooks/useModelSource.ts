@@ -1,45 +1,75 @@
-import { useMemo } from 'react';
-import { CarModels, DEFAULT_MODEL_URL, getRawModelUrl } from '../constants/CarModels';
-import { getModelUrl } from '../app/services/blenderService';
+import { useEffect, useMemo, useState } from 'react';
+import { getCachedModelUri, preloadModel, resolveModelUrl } from '../app/services/modelCache';
 
-type ModelSourceUri = { uri: string };
+export interface CachedModelSourceResult {
+    source: string;
+    loading: boolean;
+    refresh: (forceRefresh?: boolean) => Promise<string>;
+}
 
-export function useModelSource(modelPath?: string): string {
-    return useMemo(() => {
-        if (!modelPath) return DEFAULT_MODEL_URL;
+export function useModelSource(modelPath?: string, cacheToken?: string | number): CachedModelSourceResult {
+    const [source, setSource] = useState(() => resolveModelUrl(modelPath));
+    const [loading, setLoading] = useState(true);
 
-        if (modelPath.startsWith('http') || modelPath.startsWith('/api/')) {
-            return getModelUrl(modelPath);
-        }
+    const stableToken = useMemo(() => {
+        return cacheToken === undefined || cacheToken === null ? '' : String(cacheToken);
+    }, [cacheToken]);
 
-        const fileName = modelPath.split('/').pop() || 'car.glb';
-        if (CarModels[fileName]) {
-            return CarModels[fileName].uri;
-        }
-        return getRawModelUrl(fileName);
-    }, [modelPath]);
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+
+        console.log(`[3D Model] Started loading model from: ${modelPath}`);
+
+        getCachedModelUri(modelPath, { cacheToken: stableToken })
+            .then((resolved) => {
+                if (!cancelled) {
+                    console.log(`[3D Model] Finished resolving model to: ${resolved}`);
+                    setSource(resolved);
+                }
+            })
+            .catch((err) => {
+                if (!cancelled) {
+                    const fallback = resolveModelUrl(modelPath);
+                    console.warn(`[3D Model] Failed to load model from cache: ${err}. Falling back to: ${fallback}`);
+                    setSource(fallback);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [modelPath, stableToken]);
+
+    const refresh = async (forceRefresh = true) => {
+        console.log(`[3D Model] Refreshing model from: ${modelPath} (force: ${forceRefresh})`);
+        const resolved = await getCachedModelUri(modelPath, {
+            cacheToken: stableToken,
+            forceRefresh,
+        });
+        console.log(`[3D Model] Refreshed model resolved to: ${resolved}`);
+        setSource(resolved);
+        return resolved;
+    };
+
+    return { source, loading, refresh };
 }
 
 export function resolveModelSourceForAR(
     modelPath?: string,
     showCustomized?: boolean,
     customModelUrl?: string
-): ModelSourceUri {
+): { uri: string } {
     if (showCustomized && customModelUrl) {
-        return { uri: getModelUrl(customModelUrl) };
+        return { uri: resolveModelUrl(customModelUrl) };
     }
 
-    if (modelPath) {
-        if (modelPath.startsWith('http') || modelPath.startsWith('/api/')) {
-            return { uri: getModelUrl(modelPath) };
-        }
-
-        const fileName = modelPath.split('/').pop() || 'car.glb';
-        if (CarModels[fileName]) {
-            return CarModels[fileName];
-        }
-        return { uri: getModelUrl(fileName) };
-    }
-
-    return CarModels['car.glb'];
+    return { uri: resolveModelUrl(modelPath) };
 }
+
+export { preloadModel, resolveModelUrl };

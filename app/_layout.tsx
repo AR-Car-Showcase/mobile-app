@@ -1,9 +1,12 @@
+import 'expo-dev-client';
 import './polyfills';
 
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { AppAlertProvider } from './context/AppAlertContext';
+import { CarCatalogProvider } from './context/CarCatalogContext';
 import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
@@ -17,8 +20,29 @@ const InitialLayout = () => {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === 'auth';
+    const routeName = segments.join('/');
+    const onGoogleUsernameScreen = routeName === 'auth/google-username';
+    const onChangePasswordScreen = routeName === 'auth/change-password';
+    const needsProfileCompletion = user?.profileCompleted === false;
 
-    if (user && inAuthGroup) {
+    if (!user) {
+      if (onChangePasswordScreen) {
+        router.replace('/auth/login');
+      }
+      return;
+    }
+
+    if (needsProfileCompletion && !onGoogleUsernameScreen) {
+      router.replace('/auth/google-username');
+      return;
+    }
+
+    if (!needsProfileCompletion && onGoogleUsernameScreen) {
+      router.replace('/');
+      return;
+    }
+
+    if (inAuthGroup && !onChangePasswordScreen && !onGoogleUsernameScreen) {
       router.replace('/');
     }
   }, [user, segments, isLoading]);
@@ -44,6 +68,10 @@ const InitialLayout = () => {
         <Stack.Screen name="auth/login" />
         <Stack.Screen name="auth/signup" />
         <Stack.Screen name="auth/verify-email" />
+        <Stack.Screen name="auth/google-username" />
+        <Stack.Screen name="auth/forgot-password" />
+        <Stack.Screen name="auth/reset-password" />
+        <Stack.Screen name="auth/change-password" />
       </Stack>
     </View>
   );
@@ -52,9 +80,13 @@ const InitialLayout = () => {
 const RootLayout = () => {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <InitialLayout />
-      </AuthProvider>
+      <AppAlertProvider>
+        <CarCatalogProvider>
+          <AuthProvider>
+            <InitialLayout />
+          </AuthProvider>
+        </CarCatalogProvider>
+      </AppAlertProvider>
     </ThemeProvider>
   );
 };

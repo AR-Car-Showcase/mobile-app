@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Linking } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,9 +9,13 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
 import { Colors } from '../../constants/Colors';
-import { AuthStyles } from '../../constants/AuthStyles';
+import { createAuthStyles } from '../../constants/AuthStyles';
 import { isApiError } from '../../types/errors';
 import { resolveGoogleIdToken } from '../../utils/googleAuth';
+import { SUPPORT_EMAIL } from '../../api/session';
+import { friendlyAuthError, isValidEmail, isValidPhoneNumber, isValidUsername, normalizeEmail, validateStrongPassword } from '../../utils/validation';
+import { useTheme } from '../context/ThemeContext';
+import { useAppAlert } from '../context/AppAlertContext';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -24,10 +28,15 @@ const SignupScreen = () => {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const [googlePending, setGooglePending] = useState(false);
+    const googleExchangeInFlightRef = useRef(false);
+    const consumedGoogleResultKeyRef = useRef<string | null>(null);
 
     const { signUp, signInWithGoogle } = useAuth();
     const router = useRouter();
-    const Theme = Colors.dark;
+    const { colors: Theme } = useTheme();
+    const AuthStyles = useMemo(() => createAuthStyles(Theme), [Theme]);
+    const themedStyles = useMemo(() => createSignupStyles(Theme), [Theme]);
+    const showAlert = useAppAlert();
     const googleClientIds = useMemo(() => ({
         expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || undefined,
         androidClientId: Constants.expoConfig?.extra?.GOOGLE_ANDROID_CLIENT_ID || undefined,
@@ -65,36 +74,76 @@ const SignupScreen = () => {
             return;
         }
 
-        if (googleResult.type === 'dismiss' || googleResult.type === 'cancel') {
+        const resultKey = [
+            googleResult.type,
+            googleResult.params?.state,
+            googleResult.params?.code,
+            googleResult.authentication?.idToken,
+            googleResult.authentication?.accessToken,
+        ].filter(Boolean).join(':');
+
+        if (resultKey && consumedGoogleResultKeyRef.current === resultKey) {
             setGooglePending(false);
             setGoogleLoading(false);
             return;
         }
 
+        if (googleExchangeInFlightRef.current) {
+            return;
+        }
+
+        consumedGoogleResultKeyRef.current = resultKey || `${googleResult.type}:${Date.now()}`;
+
+        if (googleResult.type === 'dismiss' || googleResult.type === 'cancel') {
+            setGooglePending(false);
+            setGoogleLoading(false);
+            googleExchangeInFlightRef.current = false;
+            return;
+        }
+
         let mounted = true;
+        googleExchangeInFlightRef.current = true;
+        setGooglePending(false);
         (async () => {
             try {
+                if (__DEV__) {
+                    console.info('[GoogleAuth][signup] auth result received', {
+                        type: googleResult.type,
+                        hasCode: !!googleResult.params?.code,
+                        hasIdToken: !!googleResult.authentication?.idToken,
+                    });
+                }
                 const idToken = await resolveGoogleIdToken(googleResult, googleRequest);
                 if (!idToken) {
                     throw new Error('Google sign-in did not return an ID token.');
                 }
-                await signInWithGoogle(idToken);
+                if (__DEV__) {
+                    console.info('[GoogleAuth][signup] token exchange completed, sending idToken to backend');
+                }
+                const sessionUser = await signInWithGoogle(idToken);
+                if (sessionUser?.profileCompleted === false) {
+                    router.replace('/auth/google-username');
+                }
             } catch (error: any) {
                 if (mounted) {
-                    Alert.alert('Google Sign-In', error.message || 'Google sign-in is not available yet.');
+                    const message = isApiError(error)
+                        ? error.userMessage
+                        : (error.message || 'Google sign-in is not available yet.');
+                    showAlert('Google Sign-In', message);
                 }
             } finally {
                 if (mounted) {
                     setGooglePending(false);
                     setGoogleLoading(false);
                 }
+                googleExchangeInFlightRef.current = false;
             }
         })();
 
         return () => {
             mounted = false;
         };
-    }, [googlePending, googleResult, googleRequest, signInWithGoogle]);
+    }, [googlePending, googleResult, googleRequest, router, showAlert, signInWithGoogle]);
     const hasGoogleClientIds = !!(googleClientIds.expoClientId || googleClientIds.androidClientId || googleClientIds.iosClientId || googleClientIds.webClientId);
 
     const pickImage = async () => {
@@ -112,32 +161,41 @@ const SignupScreen = () => {
     };
 
     const handleSignup = async () => {
-        if (!username || !email || !password) {
-            Alert.alert('Error', 'Please fill in all mandatory fields');
+        const trimmedUsername = username.trim();
+        const trimmedEmail = normalizeEmail(email);
+        const trimmedPhone = phoneNumber.trim();
+
+        if (!trimmedUsername || !trimmedEmail || !password) {
+            showAlert('Validation Error', 'Please fill in username, email, and password.');
             return;
         }
 
-        if (username.length < 3) {
-            Alert.alert('Validation Error', 'Username must be at least 3 characters long');
+        if (!isValidUsername(trimmedUsername)) {
+            showAlert('Validation Error', 'Username must be 3-20 characters and use only letters, numbers, dots, or underscores.');
             return;
         }
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            Alert.alert('Validation Error', 'Please enter a valid email address');
+        if (!isValidEmail(trimmedEmail)) {
+            showAlert('Validation Error', 'Please enter a valid email address.');
             return;
         }
 
-        if (password.length < 8) {
-            Alert.alert('Validation Error', 'Password must be at least 8 characters long');
+        if (!isValidPhoneNumber(trimmedPhone)) {
+            showAlert('Validation Error', 'Please enter a valid phone number or leave it empty.');
+            return;
+        }
+
+        const passwordError = validateStrongPassword(password);
+        if (passwordError) {
+            showAlert('Validation Error', passwordError);
             return;
         }
 
         setLoading(true);
         try {
-            const response = await signUp(username, email, password, phoneNumber, profilePic || undefined);
+            const response = await signUp(trimmedUsername, trimmedEmail, password, trimmedPhone || undefined, profilePic || undefined);
             if (response.verificationRequired) {
-                Alert.alert('Check your email', response.message, [
+                showAlert('Check your email', response.message, [
                     {
                         text: 'Continue',
                         onPress: () => router.replace({
@@ -147,34 +205,44 @@ const SignupScreen = () => {
                     },
                 ]);
             } else {
-                Alert.alert('Success', response.message, [
+                showAlert('Success', response.message, [
                     { text: 'OK', onPress: () => router.replace('/auth/login') }
                 ]);
             }
         } catch (error: any) {
             const message = isApiError(error)
-                ? error.userMessage
+                ? friendlyAuthError(error.userMessage, 'Signup failed. Please try again.')
                 : (error?.message || 'Something went wrong');
-            Alert.alert('Signup Failed', message);
+            showAlert('Signup Failed', message);
         } finally {
             setLoading(false);
         }
     };
 
     const handleGoogleSignup = async () => {
+        if (googleLoading || googlePending) {
+            return;
+        }
+
         if (!googleRequest) {
-            Alert.alert('Google Sign-In Unavailable', 'Google client IDs are missing from app configuration.');
+            showAlert('Google Sign-In Unavailable', 'Google client IDs are missing from app configuration.');
             return;
         }
 
         setGoogleLoading(true);
         setGooglePending(true);
         try {
+            if (__DEV__) {
+                console.info('[GoogleAuth][signup] starting Google prompt');
+            }
             await googlePromptAsync();
         } catch (error: any) {
             setGooglePending(false);
             setGoogleLoading(false);
-            Alert.alert('Google Sign-In', error.message || 'Google sign-in is not available yet.');
+            const message = isApiError(error)
+                ? error.userMessage
+                : (error.message || 'Google sign-in is not available yet.');
+            showAlert('Google Sign-In', message);
         }
     };
 
@@ -195,11 +263,11 @@ const SignupScreen = () => {
 
                 <TouchableOpacity style={styles.profilePicContainer} onPress={pickImage}>
                     {profilePic ? (
-                        <Image source={{ uri: profilePic }} style={styles.profilePic} />
+                        <Image source={{ uri: profilePic }} style={themedStyles.profilePic} />
                     ) : (
-                        <View style={styles.profilePicPlaceholder}>
+                        <View style={themedStyles.profilePicPlaceholder}>
                             <Ionicons name="camera" size={32} color={Theme.textSecondary} />
-                            <Text style={styles.profilePicText}>Add Photo</Text>
+                            <Text style={themedStyles.profilePicText}>Add Photo</Text>
                         </View>
                     )}
                 </TouchableOpacity>
@@ -288,7 +356,7 @@ const SignupScreen = () => {
                     )}
                 </TouchableOpacity>
 
-                <Text style={styles.googleHint}>
+                <Text style={themedStyles.googleHint}>
                     Google sign-in also creates or links your account on first use.
                 </Text>
 
@@ -297,6 +365,15 @@ const SignupScreen = () => {
                     onPress={() => router.push('/auth/login')}
                 >
                     <Text style={AuthStyles.linkText}>Already have an account? <Text style={AuthStyles.linkHighlight}>Sign In</Text></Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={AuthStyles.linkButton}
+                    onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=AR%20Car%20Showcase%20account%20help`)}
+                >
+                    <Text style={AuthStyles.linkText}>
+                        Need help? Contact <Text style={AuthStyles.linkHighlight}>{SUPPORT_EMAIL}</Text>
+                    </Text>
                 </TouchableOpacity>
             </ScrollView>
         </KeyboardAvoidingView>
@@ -310,29 +387,6 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
         marginBottom: 32,
     },
-    profilePic: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        borderWidth: 2,
-        borderColor: Colors.dark.accent,
-    },
-    profilePicPlaceholder: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: Colors.dark.glass,
-        borderWidth: 1,
-        borderColor: Colors.dark.glassBorder,
-        borderStyle: 'dashed',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    profilePicText: {
-        color: Colors.dark.textSecondary,
-        fontSize: 12,
-        marginTop: 4,
-    },
     googleButton: {
         marginTop: 12,
         flexDirection: 'row',
@@ -341,8 +395,34 @@ const styles = StyleSheet.create({
         gap: 10,
         backgroundColor: 'rgba(255, 255, 255, 0.10)',
     },
+});
+
+const createSignupStyles = (Theme: typeof Colors.dark) => StyleSheet.create({
+    profilePic: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        borderWidth: 2,
+        borderColor: Theme.accent,
+    },
+    profilePicPlaceholder: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: Theme.glass,
+        borderWidth: 1,
+        borderColor: Theme.glassBorder,
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    profilePicText: {
+        color: Theme.textSecondary,
+        fontSize: 12,
+        marginTop: 4,
+    },
     googleHint: {
-        color: Colors.dark.textSecondary,
+        color: Theme.textSecondary,
         fontSize: 12,
         textAlign: 'center',
         marginTop: 10,
