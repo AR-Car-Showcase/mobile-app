@@ -1,5 +1,5 @@
 import { ApiError, ApiErrorCode } from '../../types/errors';
-import { apiClient } from '../../api/client';
+import { apiClient, BASE_URL } from '../../api/client';
 
 export interface CarConfig {
     materials: {
@@ -49,15 +49,15 @@ export function getModelUrl(pathOrFilename: string): string {
     if (!pathOrFilename) return '';
     if (pathOrFilename.startsWith('http')) return pathOrFilename;
 
-    const root = API_BASE_URL.replace('/api', '');
+    const root = BASE_URL.replace('/api', '');
 
     if (pathOrFilename.startsWith('/')) {
         return `${root}${pathOrFilename}`;
     }
 
     if (pathOrFilename.startsWith('car_')) {
-        return `${API_BASE_URL}/models/${pathOrFilename}`;
+        return `${BASE_URL}/models/${pathOrFilename}`;
     }
 
-    return `${API_BASE_URL}/static/models/${pathOrFilename}`;
+    return `${BASE_URL}/static/models/${pathOrFilename}`;
 }

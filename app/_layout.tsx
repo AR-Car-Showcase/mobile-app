@@ -3,12 +3,15 @@ import './polyfills';
 
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as WebBrowser from 'expo-web-browser';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AppAlertProvider } from './context/AppAlertContext';
 import { CarCatalogProvider } from './context/CarCatalogContext';
 import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const InitialLayout = () => {
   const { user, isLoading } = useAuth();
@@ -45,7 +48,7 @@ const InitialLayout = () => {
     if (inAuthGroup && !onChangePasswordScreen && !onGoogleUsernameScreen) {
       router.replace('/');
     }
-  }, [user, segments, isLoading]);
+  }, [user, segments, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -72,6 +75,7 @@ const InitialLayout = () => {
         <Stack.Screen name="auth/forgot-password" />
         <Stack.Screen name="auth/reset-password" />
         <Stack.Screen name="auth/change-password" />
+        <Stack.Screen name="oauthredirect" />
       </Stack>
     </View>
   );

@@ -5,19 +5,16 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as AuthSession from 'expo-auth-session';
 import * as ImagePicker from 'expo-image-picker';
-import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
 import { Colors } from '../../constants/Colors';
 import { createAuthStyles } from '../../constants/AuthStyles';
 import { isApiError } from '../../types/errors';
-import { resolveGoogleIdToken } from '../../utils/googleAuth';
+import { getGoogleAndroidRedirectUri, resolveGoogleIdToken } from '../../utils/googleAuth';
 import { SUPPORT_EMAIL } from '../../api/session';
 import { friendlyAuthError, isValidEmail, isValidPhoneNumber, isValidUsername, normalizeEmail, validateStrongPassword } from '../../utils/validation';
 import { useTheme } from '../context/ThemeContext';
 import { useAppAlert } from '../context/AppAlertContext';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const SignupScreen = () => {
     const [username, setUsername] = useState('');
@@ -38,10 +35,10 @@ const SignupScreen = () => {
     const themedStyles = useMemo(() => createSignupStyles(Theme), [Theme]);
     const showAlert = useAppAlert();
     const googleClientIds = useMemo(() => ({
-        expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || undefined,
-        androidClientId: Constants.expoConfig?.extra?.GOOGLE_ANDROID_CLIENT_ID || undefined,
-        iosClientId: Constants.expoConfig?.extra?.GOOGLE_IOS_CLIENT_ID || undefined,
-        webClientId: Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID || undefined,
+        expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || undefined,
+        androidClientId: Constants.expoConfig?.extra?.GOOGLE_ANDROID_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
+        iosClientId: Constants.expoConfig?.extra?.GOOGLE_IOS_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
+        webClientId: Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
     }), []);
 
     const redirectUri = useMemo(() => {
@@ -49,16 +46,20 @@ const SignupScreen = () => {
             return undefined;
         }
 
-        return AuthSession.makeRedirectUri({
-            native: `${Constants.expoConfig?.android?.package || 'com.adepusricharan.arcarshowcase'}:/oauthredirect`,
+        return getGoogleAndroidRedirectUri('/auth/signup') || AuthSession.makeRedirectUri({
+            native: `${Constants.expoConfig?.android?.package || 'com.adepusricharan.arcarshowcase'}:/auth/signup`,
         });
     }, []);
 
     useEffect(() => {
-        if (__DEV__ && redirectUri) {
-            console.log('[GoogleAuth] redirectUri:', redirectUri);
+        if (__DEV__) {
+            console.log('[GoogleAuth][signup] config', {
+                redirectUri,
+                hasAndroidClientId: !!googleClientIds.androidClientId,
+                hasWebClientId: !!googleClientIds.webClientId,
+            });
         }
-    }, [redirectUri]);
+    }, [redirectUri, googleClientIds.androidClientId, googleClientIds.webClientId]);
 
     const [googleRequest, googleResult, googlePromptAsync] = Google.useAuthRequest({
         expoClientId: googleClientIds.expoClientId,
@@ -66,6 +67,8 @@ const SignupScreen = () => {
         iosClientId: googleClientIds.iosClientId,
         webClientId: googleClientIds.webClientId,
         ...(redirectUri ? { redirectUri } : {}),
+        responseType: AuthSession.ResponseType.Code,
+        usePKCE: true,
         scopes: ['openid', 'profile', 'email'],
     });
 
@@ -339,19 +342,18 @@ const SignupScreen = () => {
 
                 <TouchableOpacity
                     style={[
-                        AuthStyles.button,
                         styles.googleButton,
-                        (!googleRequest || !hasGoogleClientIds || googleLoading) && AuthStyles.buttonDisabled,
+                        (!googleRequest || !hasGoogleClientIds || googleLoading) && styles.googleButtonDisabled,
                     ]}
                     onPress={handleGoogleSignup}
                     disabled={!googleRequest || !hasGoogleClientIds || googleLoading}
                 >
                     {googleLoading ? (
-                        <ActivityIndicator color="white" />
+                        <ActivityIndicator color={Theme.text} />
                     ) : (
                         <>
-                            <Ionicons name="logo-google" size={18} color="white" />
-                            <Text style={AuthStyles.buttonText}>Continue with Google</Text>
+                            <Ionicons name="logo-google" size={18} color={Theme.text} />
+                            <Text style={[styles.googleButtonText, { color: Theme.text }]}>Continue with Google</Text>
                         </>
                     )}
                 </TouchableOpacity>
@@ -388,12 +390,23 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     googleButton: {
+        minHeight: 54,
         marginTop: 12,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 10,
-        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.12)',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    googleButtonDisabled: {
+        opacity: 0.5,
+    },
+    googleButtonText: {
+        fontSize: 16,
+        fontWeight: '700',
     },
 });
 

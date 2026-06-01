@@ -6,6 +6,9 @@ const googleAndroidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID |
 const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 const supportEmail = process.env.EXPO_PUBLIC_SUPPORT_EMAIL || '';
+const googleAndroidRedirectScheme = googleAndroidClientId
+  ? `com.googleusercontent.apps.${googleAndroidClientId.replace(/\.apps\.googleusercontent\.com$/, '')}`
+  : '';
 const nativeRedirectScheme = appJson.expo.android?.package || appJson.expo.scheme || 'arcarshowcase';
 
 const intentFilters = [
@@ -15,6 +18,10 @@ const intentFilters = [
     data: [
       {
         scheme: appJson.expo.scheme || 'arcarshowcase',
+      },
+      {
+        scheme: appJson.expo.scheme || 'arcarshowcase',
+        host: 'oauthredirect',
       },
     ],
   },
@@ -26,8 +33,26 @@ const intentFilters = [
         scheme: nativeRedirectScheme,
         pathPrefix: '/oauthredirect',
       },
+      {
+        scheme: nativeRedirectScheme,
+        host: 'oauthredirect',
+      },
     ],
   },
+  ...(googleAndroidRedirectScheme ? [{
+    action: 'VIEW',
+    autoVerify: false,
+    data: [
+      {
+        scheme: googleAndroidRedirectScheme,
+        pathPrefix: '/oauthredirect',
+      },
+      {
+        scheme: googleAndroidRedirectScheme,
+        host: 'oauthredirect',
+      },
+    ],
+  }] : []),
 ];
 
 module.exports = {
@@ -39,6 +64,7 @@ module.exports = {
     GOOGLE_ANDROID_CLIENT_ID: googleAndroidClientId,
     GOOGLE_IOS_CLIENT_ID: googleIosClientId,
     GOOGLE_WEB_CLIENT_ID: googleWebClientId,
+    GOOGLE_ANDROID_REDIRECT_SCHEME: googleAndroidRedirectScheme,
     SUPPORT_EMAIL: supportEmail,
   },
   android: {

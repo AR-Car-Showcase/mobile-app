@@ -59,7 +59,19 @@
       "splits": {
         "abi": true,
         "density": false
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "com.googleusercontent.apps.857411310572-vbjo309kjjqrk4q0lg7b2tcinnmnvd3v"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "extra": {
       "router": {

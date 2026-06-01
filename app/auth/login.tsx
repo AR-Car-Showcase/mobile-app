@@ -4,17 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import Constants from 'expo-constants';
 import { createAuthStyles } from '../../constants/AuthStyles';
 import { isApiError } from '../../types/errors';
-import { fetchGoogleAuthConfig, GoogleAuthConfig, SUPPORT_EMAIL } from '../../api/session';
-import { resolveGoogleIdToken } from '../../utils/googleAuth';
+import { SUPPORT_EMAIL } from '../../api/session';
+import { getGoogleAndroidRedirectUri, resolveGoogleIdToken } from '../../utils/googleAuth';
 import { useTheme } from '../context/ThemeContext';
 import { useAppAlert } from '../context/AppAlertContext';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const LoginScreen = () => {
     const [username, setUsername] = useState('');
@@ -22,7 +19,6 @@ const LoginScreen = () => {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const [googlePending, setGooglePending] = useState(false);
-    const [googleConfig, setGoogleConfig] = useState<GoogleAuthConfig | null>(null);
     const googleExchangeInFlightRef = useRef(false);
     const consumedGoogleResultKeyRef = useRef<string | null>(null);
     const { signIn, signInWithGoogle } = useAuth();
@@ -31,10 +27,10 @@ const LoginScreen = () => {
     const AuthStyles = useMemo(() => createAuthStyles(Theme), [Theme]);
     const showAlert = useAppAlert();
     const googleClientIds = useMemo(() => ({
-        expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || undefined,
-        androidClientId: Constants.expoConfig?.extra?.GOOGLE_ANDROID_CLIENT_ID || undefined,
-        iosClientId: Constants.expoConfig?.extra?.GOOGLE_IOS_CLIENT_ID || undefined,
-        webClientId: Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID || undefined,
+        expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || undefined,
+        androidClientId: Constants.expoConfig?.extra?.GOOGLE_ANDROID_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined,
+        iosClientId: Constants.expoConfig?.extra?.GOOGLE_IOS_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined,
+        webClientId: Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || undefined,
     }), []);
 
     const redirectUri = useMemo(() => {
@@ -42,16 +38,20 @@ const LoginScreen = () => {
             return undefined;
         }
 
-        return AuthSession.makeRedirectUri({
-            native: `${Constants.expoConfig?.android?.package || 'com.adepusricharan.arcarshowcase'}:/oauthredirect`,
+        return getGoogleAndroidRedirectUri('/auth/login') || AuthSession.makeRedirectUri({
+            native: `${Constants.expoConfig?.android?.package || 'com.adepusricharan.arcarshowcase'}:/auth/login`,
         });
     }, []);
 
     useEffect(() => {
-        if (__DEV__ && redirectUri) {
-            console.log('[GoogleAuth] redirectUri:', redirectUri);
+        if (__DEV__) {
+            console.log('[GoogleAuth][login] config', {
+                redirectUri,
+                hasAndroidClientId: !!googleClientIds.androidClientId,
+                hasWebClientId: !!googleClientIds.webClientId,
+            });
         }
-    }, [redirectUri]);
+    }, [redirectUri, googleClientIds.androidClientId, googleClientIds.webClientId]);
 
     const [googleRequest, googleResult, googlePromptAsync] = Google.useAuthRequest({
         expoClientId: googleClientIds.expoClientId,
@@ -59,6 +59,8 @@ const LoginScreen = () => {
         iosClientId: googleClientIds.iosClientId,
         webClientId: googleClientIds.webClientId,
         ...(redirectUri ? { redirectUri } : {}),
+        responseType: AuthSession.ResponseType.Code,
+        usePKCE: true,
         scopes: ['openid', 'profile', 'email'],
     });
 
@@ -138,26 +140,8 @@ const LoginScreen = () => {
         };
     }, [googlePending, googleResult, googleRequest, router, showAlert, signInWithGoogle]);
 
-    useEffect(() => {
-        let mounted = true;
-
-        fetchGoogleAuthConfig().then((config) => {
-            if (mounted) {
-                setGoogleConfig(config);
-            }
-        }).catch(() => {
-            if (mounted) {
-                setGoogleConfig(null);
-            }
-        });
-
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    const isGoogleEnabled = !!googleConfig?.enabled;
     const hasGoogleClientIds = !!(googleClientIds.expoClientId || googleClientIds.androidClientId || googleClientIds.iosClientId || googleClientIds.webClientId);
+    const canStartGoogleAuth = hasGoogleClientIds;
 
     const handleLogin = async () => {
         if (!username.trim() || !password) {
@@ -188,13 +172,13 @@ const LoginScreen = () => {
             return;
         }
 
-        if (!isGoogleEnabled) {
-            showAlert('Google Sign-In Unavailable', 'Please try username/password login for now.');
+        if (!canStartGoogleAuth) {
+            showAlert('Google Sign-In Unavailable', 'Google client IDs are missing from app configuration.');
             return;
         }
 
-        if (!hasGoogleClientIds || !googleRequest) {
-            showAlert('Google Sign-In Unavailable', 'Google client IDs are missing from app configuration.');
+        if (!googleRequest) {
+            showAlert('Google Sign-In Unavailable', 'Google sign-in is still initializing. Please try again in a moment.');
             return;
         }
 
@@ -278,10 +262,10 @@ const LoginScreen = () => {
                 <TouchableOpacity
                     style={[
                         styles.googleButton,
-                        (!isGoogleEnabled || !hasGoogleClientIds || !googleRequest || googleLoading) && styles.googleButtonDisabled,
+                        (!canStartGoogleAuth || googleLoading) && styles.googleButtonDisabled,
                     ]}
                     onPress={handleGoogleLogin}
-                    disabled={!isGoogleEnabled || !hasGoogleClientIds || !googleRequest || googleLoading}
+                    disabled={!canStartGoogleAuth || googleLoading}
                 >
                     {googleLoading ? (
                         <ActivityIndicator color={Theme.text} />

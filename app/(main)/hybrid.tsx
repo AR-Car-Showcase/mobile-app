@@ -131,15 +131,26 @@ function HybridContent() {
     };
 
     const handleApplyToAR = async () => {
+        const materialEntries = Object.entries(config.materials || {});
+        const activeMaterials = materialEntries.filter(([, color]) => typeof color === 'string' && color.trim().length > 0);
+        if (activeMaterials.length === 0) {
+            Alert.alert('No Changes Selected', 'Pick at least one material color before applying to AR.');
+            return;
+        }
+
         setIsGenerating(true);
         try {
-            console.log('[HYBRID] Generating custom model for AR');
+            console.log('[HYBRID] Generating custom model for AR', {
+                vehicleId: car?.id?.toString(),
+                materialCount: activeMaterials.length,
+                materialKeys: activeMaterials.map(([key]) => key),
+            });
             const result = await generateCustomModel({
                 vehicleId: car?.id?.toString(),
                 materials: config.materials
             });
 
-            const modelUrl = getModelUrl(result.filename);
+            const modelUrl = getModelUrl(result.download_url || result.filename);
             console.log('[HYBRID] Model generated:', modelUrl);
             setGeneratedModelUrl(modelUrl);
             setShowCustomized(true);
