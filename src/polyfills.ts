@@ -1,6 +1,5 @@
 const createWorkerPolyfill = () => {
     return class {
-        constructor() { }
         postMessage() { }
         terminate() { }
         addEventListener() { }

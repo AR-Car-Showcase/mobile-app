@@ -1,11 +1,9 @@
 import React from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
 import { View, Text, Image, StyleSheet, Switch } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
-import { useAuth } from '../context/AuthContext';
-import { ScrollProvider } from '../context/ScrollContext';
+import { ScrollProvider, useAuth, useTheme } from '../../src/providers';
 
 function CustomDrawerContent(props: any) {
     const { user, signOut } = useAuth();

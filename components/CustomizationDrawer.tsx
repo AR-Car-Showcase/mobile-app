@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    Dimensions,
     Animated,
     PanResponder,
     TouchableOpacity,
@@ -13,9 +12,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import ColorPicker from './ColorPicker';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DRAWER_HEIGHT = 620;
-const CLOSED_OFFSET = DRAWER_HEIGHT - 60;
 
 interface CustomizationDrawerProps {
     isVisible: boolean;
@@ -51,7 +48,7 @@ export default function CustomizationDrawer({
             tension: 50,
             friction: 8
         }).start();
-    }, [isVisible]);
+    }, [isVisible, translateY]);
 
     const panResponder = useRef(
         PanResponder.create({

@@ -1,18 +1,18 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useAppAlert } from '../../src/providers';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { CommonStyles, ARStyles, Colors } from '../../constants';
 import { HybridStyles as styles } from '../../constants/HybridStyles';
-import { CarProvider, useCarContext } from '../context/CarContext';
+import { CarProvider, useCarContext, useTheme } from '../../src/providers';
 import { getCarByBrandAndModel, getCarById } from '../../api/cars';
 import CustomizerScreen from '../../components/CustomizerScreen';
 import CustomizationDrawer from '../../components/CustomizationDrawer';
-import { generateCustomModel, getModelUrl } from '../services/blenderService';
+import { generateCustomModel, getModelUrl } from '../../src/services';
 import { customizationsApi } from '../../api/customizations';
 import ARHybridScene from '../scenes/ARHybridScene';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
+import { ViroARSceneNavigator } from '@reactvision/react-viro';
 
 const MIN_ZOOM = 1.5;
 const MAX_ZOOM = 20;
@@ -22,6 +22,7 @@ function HybridContent() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const { colors } = useTheme();
+    const showAlert = useAppAlert();
     const [viewMode, setViewMode] = useState<'3D' | 'AR'>('3D');
     const { config, updateMaterialColor, setShowCustomized, resetCustomization } = useCarContext();
     const [activeMaterial, setActiveMaterial] = useState('CAR_BODY_PRIMARY');
@@ -99,6 +100,7 @@ function HybridContent() {
             }
         };
         loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [params.carData, params.brand, params.model, params.id, params.initialMode, params.customizationId]);
 
     const handleRotateLeft = () => sceneRef.current?.rotateLeft?.();
@@ -134,7 +136,7 @@ function HybridContent() {
         const materialEntries = Object.entries(config.materials || {});
         const activeMaterials = materialEntries.filter(([, color]) => typeof color === 'string' && color.trim().length > 0);
         if (activeMaterials.length === 0) {
-            Alert.alert('No Changes Selected', 'Pick at least one material color before applying to AR.');
+            showAlert('No Changes Selected', 'Pick at least one material color before applying to AR.');
             return;
         }
 
@@ -157,7 +159,7 @@ function HybridContent() {
             setViewMode('AR');
         } catch (error: any) {
             console.error('[HYBRID] Generation failed:', error);
-            Alert.alert('Error', error.message || 'Generation service unavailable.');
+            showAlert('Error', error.message || 'Generation service unavailable.');
         } finally {
             setIsGenerating(false);
         }
@@ -168,10 +170,10 @@ function HybridContent() {
         setIsSaving(true);
         try {
             await customizationsApi.saveCustomization(car.id.toString(), config.materials);
-            Alert.alert('Success', 'Model saved to your showroom!');
+            showAlert('Success', 'Model saved to your showroom!');
             setIsPickerVisible(false);
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'Failed to save customization.');
+            showAlert('Error', error.message || 'Failed to save customization.');
         } finally {
             setIsSaving(false);
         }
@@ -196,9 +198,9 @@ function HybridContent() {
             }
 
             setModelCacheToken(prev => prev + 1);
-            Alert.alert('Refreshed', 'Model cache was cleared and the latest version was requested from the server.');
+            showAlert('Refreshed', 'Model cache was cleared and the latest version was requested from the server.');
         } catch (error: any) {
-            Alert.alert('Refresh Failed', error.message || 'Could not refresh the model cache.');
+            showAlert('Refresh Failed', error.message || 'Could not refresh the model cache.');
         } finally {
             setIsRefreshingModel(false);
         }
@@ -306,8 +308,6 @@ function HybridContent() {
                 ) : (
                     <View style={styles.arContainer}>
                         {(() => {
-                            const { ViroARSceneNavigator } = require('@reactvision/react-viro');
-
                             return (
                                 <ViroARSceneNavigator
                                     autofocus={true}

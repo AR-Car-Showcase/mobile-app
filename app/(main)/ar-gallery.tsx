@@ -1,14 +1,15 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Pressable, RefreshControl } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
+import { useCarCatalog, useTheme } from '../../src/providers';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Car } from '../../types/car';
-import { useCarCatalog } from '../context/CarCatalogContext';
 
 export default function ARGalleryScreen() {
+    const insets = useSafeAreaInsets();
     const { colors } = useTheme();
     const router = useRouter();
     const { cars: catalogCars, loading, refreshing, refreshCatalog } = useCarCatalog();
@@ -109,6 +110,11 @@ export default function ARGalleryScreen() {
                     contentContainerStyle={styles.gridContainer}
                     showsVerticalScrollIndicator={false}
                     columnWrapperStyle={styles.row}
+                    removeClippedSubviews
+                    initialNumToRender={8}
+                    maxToRenderPerBatch={8}
+                    windowSize={7}
+                    updateCellsBatchingPeriod={50}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                     }
@@ -172,7 +178,7 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     customHeader: {
-        paddingTop: 50,
+        paddingTop: 60,
         paddingBottom: 10,
         paddingHorizontal: 16,
         borderBottomWidth: 1,

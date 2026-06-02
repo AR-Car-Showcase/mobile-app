@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { CONFIGURABLE_MATERIALS } from '../constants/CarModels';
-import { CarConfig } from '../app/context/CarContext';
+import { CONFIGURABLE_MATERIALS } from '../../constants/CarModels';
 
 const GLASS_KEYWORDS = ['glass', 'window', 'windshield'];
 

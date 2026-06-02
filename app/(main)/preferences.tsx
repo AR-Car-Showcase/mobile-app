@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, ActivityIndicator, Linking, TouchableOpacity } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth, useTheme } from '../../src/providers';
+import { useAppAlert } from '../../src/providers';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { apiClient } from '../../api/client';
@@ -17,7 +18,9 @@ interface CarOptions {
 }
 
 export default function PreferencesScreen() {
+    const insets = useSafeAreaInsets();
     const { colors } = useTheme();
+    const showAlert = useAppAlert();
     const { user, updatePreferences } = useAuth();
     const [loading, setLoading] = useState(true);
     const [options, setOptions] = useState<CarOptions>({
@@ -89,11 +92,11 @@ export default function PreferencesScreen() {
             console.log('[Preferences] Saving preferences:', payload);
             const updatedUser = await updatePreferences(payload);
 
-            Alert.alert('Success', 'Preferences saved successfully!');
+            showAlert('Success', 'Preferences saved successfully!');
             console.log('[Preferences] Updated profile user:', updatedUser?.username);
             router.back();
         } catch (error) {
-            Alert.alert('Error', 'Failed to save preferences. Please try again.');
+            showAlert('Error', 'Failed to save preferences. Please try again.');
             console.error('[Preferences] Save error:', error);
         }
     };
@@ -140,7 +143,7 @@ export default function PreferencesScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { backgroundColor: colors.background }]}>
+            <View style={[styles.header, { backgroundColor: colors.background, paddingTop: insets.top + 10 }]}>
                 <Pressable onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </Pressable>
@@ -219,7 +222,7 @@ export default function PreferencesScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: {
-        paddingTop: 50,
+        paddingTop: 60,
         paddingBottom: 16,
         paddingHorizontal: 16,
         flexDirection: 'row',

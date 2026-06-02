@@ -11,7 +11,7 @@ import {
   ViroMaterials,
 } from '@reactvision/react-viro';
 import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
-import { useModelSource } from '../../hooks/useModelSource';
+import { useModelSource } from '../../src/hooks';
 
 export default function ARSurfaceScene(props?: any) {
   const [carScale, setCarScale] = useState(0.08);

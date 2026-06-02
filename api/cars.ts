@@ -6,7 +6,12 @@ import { apiClient, BASE_URL } from './client';
 
 export const transformCarData = (carData: CarData): Car => {
     const specs: Record<string, Record<string, string>> = {};
-    carData.details.forEach(detail => {
+    const details = Array.isArray(carData.details) ? carData.details : [];
+    const variants = Array.isArray(carData.variants) ? carData.variants : [];
+    const imagesRaw = Array.isArray(carData.images) ? carData.images : [];
+    const colorsRaw = Array.isArray(carData.colors) ? carData.colors : [];
+
+    details.forEach(detail => {
         if (!specs[detail.category]) {
             specs[detail.category] = {};
         }
@@ -16,10 +21,10 @@ export const transformCarData = (carData: CarData): Car => {
     const images: CarImages = {
         exterior: [],
         interior: [],
-        colours: carData.colors.map(c => ({ name: c.name, image: c.imageUrl })) || []
+        colours: colorsRaw.map(c => ({ name: c.name, image: c.imageUrl }))
     };
 
-    carData.images.forEach((img: CarImage) => {
+    imagesRaw.forEach((img: CarImage) => {
         if (img.type.toLowerCase() === 'exterior') {
             images.exterior.push(img.imageUrl);
         } else if (img.type.toLowerCase() === 'interior') {
@@ -65,7 +70,7 @@ export const transformCarData = (carData: CarData): Car => {
         maxPriceLakhs: carData.maxPriceLakhs,
         rating: carData.rating,
         specs,
-        variants: carData.variants.map(v => ({
+        variants: variants.map(v => ({
             variant: v.variant,
             price: v.price,
             engineCC: v.engineCc,
@@ -79,7 +84,7 @@ export const transformCarData = (carData: CarData): Car => {
     };
 };
 
-const CAR_CACHE_KEY = 'carshowcase.cachedCars.v1';
+const CAR_CACHE_KEY = 'carshowcase.cachedCars.v2';
 const CAR_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
 
 interface CachedCarsPayload {
@@ -179,10 +184,8 @@ async function getCachedCarsWithMeta(forceRefresh = false): Promise<{ cars: Car[
         if (persisted?.cars?.length) {
             cachedCars = persisted.cars;
             const cacheAgeMs = persisted.savedAt ? Date.now() - persisted.savedAt : undefined;
-            const backgroundRefreshStarted = isCacheFresh(persisted.savedAt);
-            if (backgroundRefreshStarted) {
-                scheduleBackgroundRefresh();
-            }
+            const backgroundRefreshStarted = true;
+            scheduleBackgroundRefresh();
 
             return {
                 cars: persisted.cars,

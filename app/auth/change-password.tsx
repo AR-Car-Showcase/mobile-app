@@ -1,14 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, ScrollView, Platform, Linking } from 'react-native';
-import { useAuth } from '../context/AuthContext';
+import { useAppAlert, useAuth, useTheme } from '../../src/providers';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { createAuthStyles } from '../../constants/AuthStyles';
 import { isApiError } from '../../types/errors';
 import { SUPPORT_EMAIL } from '../../api/session';
 import { validateStrongPassword } from '../../utils/validation';
-import { useTheme } from '../context/ThemeContext';
-import { useAppAlert } from '../context/AppAlertContext';
 
 const ChangePasswordScreen = () => {
     const [currentPassword, setCurrentPassword] = useState('');

@@ -3,7 +3,7 @@ import { Modal, View, Text, StyleSheet, Pressable, Dimensions } from 'react-nati
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../constants/Colors';
+import { useTheme } from '../src/providers';
 
 interface LoginRequiredModalProps {
     visible: boolean;
@@ -12,10 +12,10 @@ interface LoginRequiredModalProps {
 }
 
 const { width } = Dimensions.get('window');
-const Theme = Colors.dark;
 
 export default function LoginRequiredModal({ visible, onClose, featureName }: LoginRequiredModalProps) {
     const router = useRouter();
+    const { colors } = useTheme();
 
     const handleLogin = () => {
         onClose();
@@ -36,33 +36,33 @@ export default function LoginRequiredModal({ visible, onClose, featureName }: Lo
         >
             <View style={styles.overlay}>
                 <Pressable style={styles.backdrop} onPress={onClose} />
-                <BlurView intensity={30} tint="dark" style={styles.modalContent}>
+                <BlurView intensity={30} tint="dark" style={[styles.modalContent, { borderColor: colors.glassBorder }]}>
                     <View style={styles.header}>
-                        <View style={styles.iconContainer}>
-                            <Ionicons name="lock-closed" size={32} color={Theme.accent} />
+                        <View style={[styles.iconContainer, { backgroundColor: colors.surfaceHighlight }]}>
+                            <Ionicons name="lock-closed" size={32} color={colors.accent} />
                         </View>
                         <Pressable onPress={onClose} style={styles.closeButton}>
-                            <Ionicons name="close" size={24} color={Theme.textSecondary} />
+                            <Ionicons name="close" size={24} color={colors.textSecondary} />
                         </Pressable>
                     </View>
 
-                    <Text style={styles.title}>Login Required</Text>
-                    <Text style={styles.description}>
+                    <Text style={[styles.title, { color: colors.text }]}>Login Required</Text>
+                    <Text style={[styles.description, { color: colors.textSecondary }]}>
                         To access {featureName}, you need to be logged in to your account.
                     </Text>
 
                     <View style={styles.buttonContainer}>
-                        <Pressable style={styles.loginButton} onPress={handleLogin}>
+                        <Pressable style={[styles.loginButton, { backgroundColor: colors.accent, shadowColor: colors.accent }]} onPress={handleLogin}>
                             <Text style={styles.loginButtonText}>Login</Text>
                         </Pressable>
 
-                        <Pressable style={styles.signupButton} onPress={handleSignup}>
-                            <Text style={styles.signupButtonText}>Create Account</Text>
+                        <Pressable style={[styles.signupButton, { borderColor: colors.accent }]} onPress={handleSignup}>
+                            <Text style={[styles.signupButtonText, { color: colors.accent }]}>Create Account</Text>
                         </Pressable>
                     </View>
 
                     <Pressable style={styles.cancelButton} onPress={onClose}>
-                        <Text style={styles.cancelButtonText}>Maybe Later</Text>
+                        <Text style={[styles.cancelButtonText, { color: colors.textTertiary }]}>Maybe Later</Text>
                     </Pressable>
                 </BlurView>
             </View>
@@ -87,7 +87,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: Theme.glassBorder,
         backgroundColor: 'rgba(20, 20, 20, 0.4)',
     },
     header: {
@@ -100,7 +99,6 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: Theme.surfaceHighlight,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -112,12 +110,10 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: Theme.text,
         marginBottom: 8,
     },
     description: {
         fontSize: 16,
-        color: Theme.textSecondary,
         textAlign: 'center',
         marginBottom: 32,
         lineHeight: 22,
@@ -129,11 +125,9 @@ const styles = StyleSheet.create({
     loginButton: {
         width: '100%',
         height: 56,
-        backgroundColor: Theme.accent,
         borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: Theme.accent,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -150,12 +144,10 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
         borderRadius: 18,
         borderWidth: 1.5,
-        borderColor: Theme.accent,
         justifyContent: 'center',
         alignItems: 'center',
     },
     signupButtonText: {
-        color: Theme.accent,
         fontSize: 16,
         fontWeight: 'bold',
     },
@@ -164,7 +156,6 @@ const styles = StyleSheet.create({
         padding: 8,
     },
     cancelButtonText: {
-        color: Theme.textTertiary,
         fontSize: 14,
         fontWeight: '500',
     },

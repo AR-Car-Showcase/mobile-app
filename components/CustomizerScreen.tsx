@@ -2,13 +2,9 @@ import React, { Suspense, useRef, useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { Canvas, useThree, useFrame } from '@react-three/fiber/native';
 import { Center, useGLTF } from '@react-three/drei/native';
-import { useCarContext } from '../app/context/CarContext';
+import { useCarContext } from '../src/providers';
 import * as THREE from 'three';
-import { DEFAULT_MODEL_URL } from '../constants/CarModels';
-import { useModelSource } from '../hooks/useModelSource';
-import { useSceneMaterials } from '../hooks/useSceneMaterials';
-import { useSceneCleanup } from '../hooks/useSceneCleanup';
-import { useTouchGestures } from '../hooks/useTouchGestures';
+import { useModelSource, useSceneCleanup, useSceneMaterials, useTouchGestures } from '../src/hooks';
 
 interface CustomizerScreenProps {
     rotationY: number;
@@ -68,15 +64,15 @@ function SceneController({
 
     useEffect(() => {
         rotationYRef.current = targetRotationY;
-    }, [targetRotationY]);
+    }, [targetRotationY, rotationYRef]);
 
     useEffect(() => {
         rotationXRef.current = targetRotationX;
-    }, [targetRotationX]);
+    }, [targetRotationX, rotationXRef]);
 
     useEffect(() => {
         zoomRef.current = targetZoom;
-    }, [targetZoom]);
+    }, [targetZoom, zoomRef]);
 
     useFrame((_, delta) => {
         if (autoRotate && viewType === 'exterior') {
@@ -212,4 +208,3 @@ const styles = StyleSheet.create({
 });
 
 useGLTF.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
-useGLTF.preload(DEFAULT_MODEL_URL);

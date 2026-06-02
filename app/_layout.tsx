@@ -1,13 +1,10 @@
 import 'expo-dev-client';
-import './polyfills';
+import '../src/polyfills';
 
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider, useTheme } from './context/ThemeContext';
-import { AppAlertProvider } from './context/AppAlertContext';
-import { CarCatalogProvider } from './context/CarCatalogContext';
+import { AppAlertProvider, AuthProvider, CarCatalogProvider, ThemeProvider, useAuth, useTheme } from '../src/providers';
 import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 

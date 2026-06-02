@@ -1,11 +1,10 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { useTheme } from '../app/context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Animated from 'react-native-reanimated';
-import { useScrollContext } from '../app/context/ScrollContext';
-import { useSmartScroll } from '../app/hooks/useSmartScroll';
+import { useScrollContext, useTheme } from '../src/providers';
+import { useSmartScroll } from '../src/hooks';
 
 const TAB_ICONS: Record<string, { focused: string; default: string }> = {
     index: { focused: 'home', default: 'home-outline' },

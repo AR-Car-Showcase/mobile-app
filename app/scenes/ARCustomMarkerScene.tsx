@@ -11,7 +11,7 @@ import {
   ViroAnimations,
 } from '@reactvision/react-viro';
 import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
-import { useModelSource } from '../../hooks/useModelSource';
+import { useModelSource } from '../../src/hooks';
 
 interface ARCustomMarkerSceneProps {
   customImageUri: string | null;
@@ -19,8 +19,8 @@ interface ARCustomMarkerSceneProps {
 }
 
 export default function ARCustomMarkerScene({ customImageUri, sceneNavigator }: ARCustomMarkerSceneProps) {
-  const [carScale, setCarScale] = useState(0.08);
-  const [carRotation, setCarRotation] = useState<[number, number, number]>([0, 0, 0]);
+  const carScale = 0.08;
+  const carRotation: [number, number, number] = [0, 0, 0];
   const [imageFound, setImageFound] = useState(false);
   const [animationRun, setAnimationRun] = useState(false);
   const [targetRegistered, setTargetRegistered] = useState(false);
@@ -55,24 +55,6 @@ export default function ARCustomMarkerScene({ customImageUri, sceneNavigator }: 
       setTargetRegistered(true);
     }
   }, [customImageUri]);
-
-  const rotateLeft = useCallback(() => {
-    setCarRotation(prev => [prev[0], prev[1] + 30, prev[2]]);
-  }, []);
-
-  const rotateRight = useCallback(() => {
-    setCarRotation(prev => [prev[0], prev[1] - 30, prev[2]]);
-  }, []);
-
-  const zoomIn = useCallback(() => {
-    setCarScale(prev => Math.min(0.3, prev + 0.05));
-  }, []);
-
-  const zoomOut = useCallback(() => {
-    setCarScale(prev => Math.max(0.05, prev - 0.05));
-  }, []);
-
-
 
   const onAnchorFound = useCallback(() => {
     setImageFound(true);

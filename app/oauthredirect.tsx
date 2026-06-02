@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../src/providers';
 
 export default function OAuthRedirectScreen() {
     const { user, isLoading } = useAuth();

@@ -73,7 +73,9 @@ async function performRequest<T>(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    console.log(`[API Request] ${options.method || 'GET'} ${url}`);
+    if (__DEV__) {
+        console.log(`[API Request] ${options.method || 'GET'} ${url}`);
+    }
 
     try {
         const response = await fetch(url, {

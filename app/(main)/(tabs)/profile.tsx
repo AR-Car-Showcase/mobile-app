@@ -1,9 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Pressable, Linking, RefreshControl } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth, useScrollContext, useTheme } from '../../../src/providers';
 import { Ionicons } from '@expo/vector-icons';
-import { useScrollContext } from '../../context/ScrollContext';
 import { useNavigation, router } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import Animated, {
@@ -19,6 +18,7 @@ export default function ProfileScreen() {
     const { user, signOut, fetchProfile } = useAuth();
     const { colors } = useTheme();
     const { scrollY } = useScrollContext();
+    const insets = useSafeAreaInsets();
     const navigation = useNavigation<DrawerNavigationProp<any>>();
     const [showLoginModal, setShowLoginModal] = React.useState(false);
     const [refreshing, setRefreshing] = React.useState(false);
@@ -26,8 +26,11 @@ export default function ProfileScreen() {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchProfile();
-        setRefreshing(false);
+        try {
+            await fetchProfile(true);
+        } finally {
+            setRefreshing(false);
+        }
     };
 
     useFocusEffect(
@@ -79,7 +82,7 @@ export default function ProfileScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <Animated.View style={[styles.headerWrapper, headerStyle]}>
+            <Animated.View style={[styles.headerWrapper, headerStyle, { top: insets.top + 10 }]}>
                 <Pressable
                     style={[styles.menuButton, { backgroundColor: colors.surface }]}
                     onPress={() => navigation.openDrawer()}
@@ -91,7 +94,7 @@ export default function ProfileScreen() {
 
             <Animated.ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 80 }]}
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
@@ -187,7 +190,6 @@ const styles = StyleSheet.create({
     },
     headerWrapper: {
         position: 'absolute',
-        top: 50,
         left: 16,
         right: 16,
         flexDirection: 'row',
@@ -216,7 +218,6 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 24,
-        paddingTop: 120,
         paddingBottom: 100,
     },
     header: {

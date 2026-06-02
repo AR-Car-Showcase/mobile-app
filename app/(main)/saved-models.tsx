@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, StatusBar, RefreshControl, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../../src/providers';
 import { LinearGradient } from 'expo-linear-gradient';
 import { customizationsApi, CustomizationResponse } from '../../api/customizations';
 import { carsApi } from '../../api/cars';
 
 export default function SavedModelsScreen() {
+    const insets = useSafeAreaInsets();
     const { colors } = useTheme();
     const router = useRouter();
     const [customizations, setCustomizations] = useState<CustomizationResponse[]>([]);
@@ -101,7 +103,7 @@ export default function SavedModelsScreen() {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar barStyle={colors.text === '#FFFFFF' ? 'light-content' : 'dark-content'} />
 
-            <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </TouchableOpacity>
@@ -133,6 +135,11 @@ export default function SavedModelsScreen() {
                     contentContainerStyle={styles.gridContainer}
                     showsVerticalScrollIndicator={false}
                     columnWrapperStyle={styles.row}
+                    removeClippedSubviews
+                    initialNumToRender={8}
+                    maxToRenderPerBatch={8}
+                    windowSize={7}
+                    updateCellsBatchingPeriod={50}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                     }

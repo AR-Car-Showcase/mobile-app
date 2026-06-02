@@ -9,7 +9,7 @@ import {
     ViroQuad,
     ViroMaterials,
 } from '@reactvision/react-viro';
-import { useModelSource } from '../../hooks/useModelSource';
+import { useModelSource } from '../../src/hooks';
 import { DEFAULT_MODEL_OBJ } from '../../constants/CarModels';
 
 type Triplet = [number, number, number];

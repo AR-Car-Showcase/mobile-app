@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getCachedModelUri, preloadModel, resolveModelUrl } from '../app/services/modelCache';
+import { getCachedModelUri, preloadModel, resolveModelUrl } from '../services/modelCache';
 
 export interface CachedModelSourceResult {
     source: string;

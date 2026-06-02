@@ -78,5 +78,6 @@ export function useTouchGestures(
                 callbacks.onZoomChange(zoomRef.current);
             },
         });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [touchEnabled]);
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Linking } from 'react-native';
-import { useAuth } from '../context/AuthContext';
+import { useAppAlert, useAuth, useTheme } from '../../src/providers';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as AuthSession from 'expo-auth-session';
@@ -13,8 +13,6 @@ import { isApiError } from '../../types/errors';
 import { getGoogleAndroidRedirectUri, resolveGoogleIdToken } from '../../utils/googleAuth';
 import { SUPPORT_EMAIL } from '../../api/session';
 import { friendlyAuthError, isValidEmail, isValidPhoneNumber, isValidUsername, normalizeEmail, validateStrongPassword } from '../../utils/validation';
-import { useTheme } from '../context/ThemeContext';
-import { useAppAlert } from '../context/AppAlertContext';
 
 const SignupScreen = () => {
     const [username, setUsername] = useState('');
@@ -62,7 +60,7 @@ const SignupScreen = () => {
     }, [redirectUri, googleClientIds.androidClientId, googleClientIds.webClientId]);
 
     const [googleRequest, googleResult, googlePromptAsync] = Google.useAuthRequest({
-        expoClientId: googleClientIds.expoClientId,
+        clientId: googleClientIds.expoClientId || googleClientIds.webClientId,
         androidClientId: googleClientIds.androidClientId,
         iosClientId: googleClientIds.iosClientId,
         webClientId: googleClientIds.webClientId,
@@ -74,6 +72,17 @@ const SignupScreen = () => {
 
     useEffect(() => {
         if (!googlePending || !googleResult) {
+            return;
+        }
+
+        if (googleResult.type === 'dismiss' || googleResult.type === 'cancel') {
+            setGooglePending(false);
+            setGoogleLoading(false);
+            googleExchangeInFlightRef.current = false;
+            return;
+        }
+
+        if (googleResult.type !== 'success') {
             return;
         }
 
@@ -96,13 +105,6 @@ const SignupScreen = () => {
         }
 
         consumedGoogleResultKeyRef.current = resultKey || `${googleResult.type}:${Date.now()}`;
-
-        if (googleResult.type === 'dismiss' || googleResult.type === 'cancel') {
-            setGooglePending(false);
-            setGoogleLoading(false);
-            googleExchangeInFlightRef.current = false;
-            return;
-        }
 
         let mounted = true;
         googleExchangeInFlightRef.current = true;

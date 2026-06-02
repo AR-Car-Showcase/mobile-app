@@ -1,18 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, RefreshControl, ScrollView } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth, useTheme } from '../../../src/providers';
 import { useNavigation, router } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../context/AuthContext';
-import { likeService, Car } from '../../services/likeService';
+import { likeService } from '../../../src/services';
+import type { Car as LikedCar } from '../../../src/services/likeService';
 import CarCard from '../../../components/CarCard';
 
 export default function SavedScreen() {
     const { colors } = useTheme();
+    const insets = useSafeAreaInsets();
     const navigation = useNavigation<DrawerNavigationProp<any>>();
     const { isAuthenticated } = useAuth();
-    const [likedCars, setLikedCars] = React.useState<Car[]>([]);
+    const [likedCars, setLikedCars] = React.useState<LikedCar[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [refreshing, setRefreshing] = React.useState(false);
 
@@ -45,7 +47,7 @@ export default function SavedScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.headerWrapper}>
+            <View style={[styles.headerWrapper, { top: insets.top + 10 }]}>
                 <Pressable
                     style={[styles.menuButton, { backgroundColor: colors.surface }]}
                     onPress={() => navigation.openDrawer()}
@@ -56,7 +58,7 @@ export default function SavedScreen() {
             </View>
 
             <View
-                style={styles.scrollContent}
+                style={[styles.scrollContent, { paddingTop: insets.top + 70 }]}
                 onLayout={() => {}}
             >
                 {loading ? (
@@ -100,6 +102,11 @@ export default function SavedScreen() {
                         )}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        removeClippedSubviews
+                        initialNumToRender={6}
+                        maxToRenderPerBatch={6}
+                        windowSize={7}
+                        updateCellsBatchingPeriod={50}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                         }
@@ -116,7 +123,6 @@ const styles = StyleSheet.create({
     },
     headerWrapper: {
         position: 'absolute',
-        top: 50,
         left: 16,
         right: 16,
         flexDirection: 'row',
@@ -142,7 +148,6 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
-        paddingTop: 120,
         paddingBottom: 100,
     },
     emptyState: {

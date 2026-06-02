@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../context/ThemeContext';
+import { useCarCatalog, useScrollContext, useTheme } from '../../../src/providers';
 import CarCard from '../../../components/CarCard';
 import { router, useNavigation } from 'expo-router';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -11,12 +12,11 @@ import Animated, {
     interpolate,
     Extrapolation
 } from 'react-native-reanimated';
-import { useScrollContext } from '../../context/ScrollContext';
-import { useCarCatalog } from '../../context/CarCatalogContext';
 
 export default function ExploreScreen() {
     const { colors } = useTheme();
     const { scrollY } = useScrollContext();
+    const insets = useSafeAreaInsets();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState('All');
     const navigation = useNavigation<DrawerNavigationProp<any>>();
@@ -69,7 +69,7 @@ export default function ExploreScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.fixedHeader, { backgroundColor: colors.background }]}>
+            <View style={[styles.fixedHeader, { backgroundColor: colors.background, paddingTop: insets.top + 10 }]}>
                 <View style={styles.menuRow}>
                     <Pressable
                         style={[styles.menuButton, { backgroundColor: colors.surface }]}
@@ -81,7 +81,7 @@ export default function ExploreScreen() {
                 </View>
             </View>
 
-            <Animated.View style={[styles.searchContainerWrapper, searchBarStyle, { backgroundColor: colors.background }]}>
+            <Animated.View style={[styles.searchContainerWrapper, searchBarStyle, { backgroundColor: colors.background, top: insets.top + 60 }]}>
                 <View style={[styles.searchContainer, { marginTop: 10 }]}>
                     <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                         <Ionicons name="search" size={20} color={colors.textSecondary} />
@@ -127,12 +127,17 @@ export default function ExploreScreen() {
 
             <Animated.FlatList
                 data={filteredCars}
-                keyExtractor={(item, index) => `${item.brand}-${item.model}-${index}`}
+                keyExtractor={(item) => String(item.id)}
                 numColumns={2}
-                contentContainerStyle={[styles.gridContainer, { paddingTop: 210 }]}
+                contentContainerStyle={[styles.gridContainer, { paddingTop: insets.top + 170 }]}
                 columnWrapperStyle={styles.row}
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
+                removeClippedSubviews
+                initialNumToRender={8}
+                maxToRenderPerBatch={8}
+                windowSize={7}
+                updateCellsBatchingPeriod={50}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -173,12 +178,10 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         zIndex: 110,
-        paddingTop: 50,
         paddingBottom: 10,
     },
     searchContainerWrapper: {
         position: 'absolute',
-        top: 100,
         left: 0,
         right: 0,
         zIndex: 100,

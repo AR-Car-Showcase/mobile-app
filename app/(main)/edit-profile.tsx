@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, ActivityIndicator, Image, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, ActivityIndicator, Image, TouchableOpacity, Linking } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
+import { useAppAlert, useAuth, useTheme } from '../../src/providers';
 import { SUPPORT_EMAIL } from '../../api/session';
 import { isValidPhoneNumber } from '../../utils/validation';
 
 export default function EditProfileScreen() {
+    const insets = useSafeAreaInsets();
     const { colors } = useTheme();
     const { user, updateProfile } = useAuth();
+    const showAlert = useAppAlert();
     const [loading, setLoading] = useState(false);
     const [displayName, setDisplayName] = useState(user?.displayName || '');
     const [username, setUsername] = useState(user?.username || '');
@@ -42,27 +44,27 @@ export default function EditProfileScreen() {
 
     const handleSave = async () => {
         if (displayName.trim().length > 60) {
-            Alert.alert('Validation Error', 'Display name must be 60 characters or less.');
+            showAlert('Validation Error', 'Display name must be 60 characters or less.');
             return;
         }
 
         if (!isValidPhoneNumber(phoneNumber)) {
-            Alert.alert('Validation Error', 'Please enter a valid phone number or leave it empty.');
+            showAlert('Validation Error', 'Please enter a valid phone number or leave it empty.');
             return;
         }
 
         if (bio.trim().length > 500) {
-            Alert.alert('Validation Error', 'Bio must be 500 characters or less.');
+            showAlert('Validation Error', 'Bio must be 500 characters or less.');
             return;
         }
 
         setLoading(true);
         try {
             const updatedUser = await updateProfile({
-                displayName: displayName.trim() || null,
-                phoneNumber: phoneNumber.trim() || null,
-                bio: bio.trim() || null,
-                profilePic,
+                displayName: displayName.trim() || undefined,
+                phoneNumber: phoneNumber.trim() || undefined,
+                bio: bio.trim() || undefined,
+                profilePic: profilePic || undefined,
             });
 
             if (__DEV__) {
@@ -72,11 +74,11 @@ export default function EditProfileScreen() {
                 });
             }
 
-            Alert.alert('Profile Saved', 'Your account details were updated successfully.', [
+            showAlert('Profile Saved', 'Your account details were updated successfully.', [
                 { text: 'Continue', onPress: () => router.back() },
             ]);
         } catch (error: any) {
-            Alert.alert('Save Failed', error?.userMessage || error?.message || 'Could not update your profile.');
+            showAlert('Save Failed', error?.userMessage || error?.message || 'Could not update your profile.');
         } finally {
             setLoading(false);
         }
@@ -84,7 +86,7 @@ export default function EditProfileScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={[styles.header, { backgroundColor: colors.background }]}>
+            <View style={[styles.header, { backgroundColor: colors.background, paddingTop: insets.top + 10 }]}>
                 <Pressable onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </Pressable>
@@ -180,7 +182,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 18,
-        paddingTop: 54,
+        paddingTop: 60,
         paddingBottom: 12,
         gap: 16,
     },

@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
-import { Colors } from '../../constants/Colors';
+import { colors as Colors, type ThemeMode } from '../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type ThemeType = 'light' | 'dark';
+type ThemeType = ThemeMode;
 
 interface ThemeContextType {
     theme: ThemeType;
@@ -20,6 +20,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     useEffect(() => {
         loadTheme();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const loadTheme = async () => {

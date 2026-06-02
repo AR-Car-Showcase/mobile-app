@@ -37,5 +37,5 @@ export function useSceneCleanup(
             materialsRef.current = [];
             originalColorsRef.current = {};
         };
-    }, [scene]);
+    }, [scene, materialsRef, originalColorsRef]);
 }
