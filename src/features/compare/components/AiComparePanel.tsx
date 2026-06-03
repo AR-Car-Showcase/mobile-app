@@ -37,9 +37,6 @@ export function AiComparePanel({
             <Text style={[styles.aiSubtitle, { color: colors.textSecondary }]}>
                 Tell AI what matters to you, and it will explain the best option among selected cars.
             </Text>
-            <Text style={[styles.aiHint, { color: colors.textSecondary }]}>
-                Smart mode is always enabled: DB first, JSON fallback if needed.
-            </Text>
 
             <TextInput
                 style={[

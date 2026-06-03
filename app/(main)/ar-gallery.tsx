@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Pressable, RefreshControl } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,7 +8,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Car } from '../../types/car';
 
 export default function ARGalleryScreen() {
-    const insets = useSafeAreaInsets();
     const { colors } = useTheme();
     const router = useRouter();
     const { cars: catalogCars, loading, refreshing, refreshCatalog } = useCarCatalog();
@@ -126,14 +124,6 @@ export default function ARGalleryScreen() {
                                 </Text>
                             </View>
 
-                            {/* Debug Info Overlay */}
-                            <View style={[styles.debugBanner, { backgroundColor: colors.accent + '15', marginBottom: 12 }]}>
-                                <Ionicons name="bug-outline" size={16} color={colors.accent} style={{ marginRight: 8 }} />
-                                <Text style={[styles.debugText, { color: colors.text }]}>
-                                    DEBUG: Identified {cars.length} 3D models.
-                                </Text>
-                            </View>
-
                             <View style={[styles.infoBanner, { backgroundColor: colors.accent + '10', marginHorizontal: 0 }]}>
                                 <Ionicons name="information-circle" size={20} color={colors.accent} />
                                 <Text style={[styles.infoBannerText, { color: colors.text }]}>
@@ -222,18 +212,6 @@ const styles = StyleSheet.create({
     infoBannerText: {
         fontSize: 14,
         fontWeight: '500',
-    },
-    debugBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 10,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(59, 130, 246, 0.3)',
-    },
-    debugText: {
-        fontSize: 12,
-        fontWeight: '600',
     },
     gridContainer: {
         padding: 16,

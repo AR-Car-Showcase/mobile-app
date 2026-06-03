@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -147,7 +147,11 @@ export default function CompareScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <KeyboardAvoidingView
+            style={[styles.container, { backgroundColor: colors.background }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={insets.top + 92}
+        >
             <Animated.View style={[styles.tier1Header, { backgroundColor: colors.background }, tier1Style]}>
                 <Pressable onPress={() => {
                     const r = router as any;
@@ -197,7 +201,9 @@ export default function CompareScreen() {
                 showsVerticalScrollIndicator={false}
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
-                contentContainerStyle={{ paddingTop: TOTAL_HEADER_HEIGHT + 10 }}
+                contentContainerStyle={{ paddingTop: TOTAL_HEADER_HEIGHT + 10, paddingBottom: 32 }}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={refreshCatalog} tintColor={colors.accent} />
                 }
@@ -260,7 +266,7 @@ export default function CompareScreen() {
                 searchResults={searchResults}
                 onSelectCar={addCar}
             />
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
