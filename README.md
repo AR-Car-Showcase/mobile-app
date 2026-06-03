@@ -35,6 +35,88 @@ An immersive **Augmented Reality Car Showcase** mobile app built with **React Na
 
 ---
 
+## 📸 Screenshots
+
+### Home & Explore
+<table>
+  <tr>
+    <td><img src="assets/Screenshots/light_home.png" alt="Home Light" width="250"/></td>
+    <td><img src="assets/Screenshots/dark_home.png" alt="Home Dark" width="250"/></td>
+    <td><img src="assets/Screenshots/light_sidebar.png" alt="Sidebar" width="250"/></td>
+  </tr>
+  <tr>
+    <td><img src="assets/Screenshots/light_explore.png" alt="Explore Light" width="250"/></td>
+    <td><img src="assets/Screenshots/dark_explore.png" alt="Explore Dark" width="250"/></td>
+    <td><img src="assets/Screenshots/light_cardetails.png" alt="Car Details" width="250"/></td>
+  </tr>
+</table>
+
+### Authentication & Onboarding
+<table>
+  <tr>
+    <td><img src="assets/Screenshots/light_login.png" alt="Login Screen" width="250"/></td>
+    <td><img src="assets/Screenshots/light_login_popup.png" alt="Login Popup" width="250"/></td>
+    <td><img src="assets/Screenshots/light_preferences.png" alt="User Preferences" width="250"/></td>
+  </tr>
+</table>
+
+### 3D Customization Studio
+<table>
+  <tr>
+    <td><img src="assets/Screenshots/light_3D_Studio.png" alt="3D Studio Light" width="250"/></td>
+    <td><img src="assets/Screenshots/light_3D_Studio_details.png" alt="Studio Details" width="250"/></td>
+    <td><img src="assets/Screenshots/light_3D_Studio_customized.png" alt="Studio Customized Light" width="250"/></td>
+  </tr>
+  <tr>
+    <td><img src="assets/Screenshots/dark_3D_Studio_customized.png" alt="Studio Customized Dark" width="250"/></td>
+    <td><img src="assets/Screenshots/dark_compare.png" alt="Compare Mode" width="250"/></td>
+    <td></td>
+  </tr>
+</table>
+
+### Augmented Reality
+<table>
+  <tr>
+    <td><img src="assets/Screenshots/light_AR_mode.png" alt="AR Mode" width="250"/></td>
+    <td><img src="assets/Screenshots/AR_customized.png" alt="AR Customized" width="250"/></td>
+    <td><img src="assets/Screenshots/AR_mode_Interior.png" alt="AR Interior" width="250"/></td>
+  </tr>
+  <tr>
+    <td><img src="assets/Screenshots/light_argallery.png" alt="AR Gallery" width="250"/></td>
+    <td></td>
+    <td></td>
+  </tr>
+</table>
+
+### Saved & Showroom
+<table>
+  <tr>
+    <td><img src="assets/Screenshots/light_saved.png" alt="Saved Light" width="250"/></td>
+    <td><img src="assets/Screenshots/dark_saved.png" alt="Saved Dark" width="250"/></td>
+    <td><img src="assets/Screenshots/dark_showroom.png" alt="Showroom" width="250"/></td>
+  </tr>
+</table>
+
+### Profile & Settings
+<table>
+  <tr>
+    <td><img src="assets/Screenshots/light_profile.png" alt="Profile Light" width="250"/></td>
+    <td><img src="assets/Screenshots/dark_profile.png" alt="Profile Dark" width="250"/></td>
+    <td><img src="assets/Screenshots/light_edit_profile.png" alt="Edit Profile" width="250"/></td>
+  </tr>
+</table>
+
+### AI Recommendations
+<table>
+  <tr>
+    <td><img src="assets/Screenshots/light_recommendation.png" alt="Recommendations" width="250"/></td>
+    <td><img src="assets/Screenshots/dark_You_Might_like.png" alt="You Might Like" width="250"/></td>
+    <td><img src="assets/Screenshots/dark_compare_chatbot.png" alt="Compare Chatbot" width="250"/></td>
+  </tr>
+</table>
+
+---
+
 ## 🏗️ Frontend Architecture
 
 ### Overview
