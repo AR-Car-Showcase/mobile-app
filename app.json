@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "AR Car Showcase",
+    "name": "ARCS",
     "slug": "ar-car-showcase",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/release.png",
+    "icon": "./assets/images/launcher-icon.png",
     "scheme": "arcarshowcase",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -38,17 +38,17 @@
     "ios": {
       "supportsTabletMode": true,
       "bundleIdentifier": "com.adepusricharan.arcarshowcase",
-      "icon": "./assets/images/release.png",
+      "icon": "./assets/images/launcher-icon.png",
       "infoPlist": {
         "NSCameraUsageDescription": "We need camera access for AR car showcase"
       }
     },
     "android": {
       "package": "com.adepusricharan.arcarshowcase",
-      "icon": "./assets/images/release.png",
+      "icon": "./assets/images/launcher-icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/release.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/images/launcher-icon.png",
+        "backgroundColor": "#08111f"
       },
       "permissions": [
         "CAMERA",
