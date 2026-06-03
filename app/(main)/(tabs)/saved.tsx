@@ -58,7 +58,7 @@ export default function SavedScreen() {
             </View>
 
             <View
-                style={[styles.scrollContent, { paddingTop: insets.top + 70 }]}
+                style={[styles.scrollContent, { paddingTop: insets.top + 70, paddingBottom: insets.bottom + 100 }]}
                 onLayout={() => {}}
             >
                 {loading ? (
@@ -148,7 +148,6 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         flexGrow: 1,
-        paddingBottom: 100,
     },
     emptyState: {
         flexGrow: 1,

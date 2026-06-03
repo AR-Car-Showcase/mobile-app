@@ -18,7 +18,7 @@ const USE_SECURE_STORE = Platform.OS !== 'web';
 export const SUPPORT_EMAIL =
     process.env.EXPO_PUBLIC_SUPPORT_EMAIL ||
     Constants.expoConfig?.extra?.SUPPORT_EMAIL ||
-    'support@arcarshowcase.local';
+    'contact@arcarshowcase.com';
 
 async function setValue(key: string, value: string, secure: boolean) {
     if (secure && USE_SECURE_STORE) {

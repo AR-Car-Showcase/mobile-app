@@ -3,7 +3,7 @@ import { Modal, View, Text, StyleSheet, Pressable, Dimensions } from 'react-nati
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../src/providers';
+import { useAppScale, useTheme } from '../src/providers';
 
 interface LoginRequiredModalProps {
     visible: boolean;
@@ -15,7 +15,10 @@ const { width } = Dimensions.get('window');
 
 export default function LoginRequiredModal({ visible, onClose, featureName }: LoginRequiredModalProps) {
     const router = useRouter();
-    const { colors } = useTheme();
+    const { colors, theme } = useTheme();
+    const { uiScale } = useAppScale();
+    const isDark = theme === 'dark';
+    const modalWidth = Math.max(width * 0.74, Math.min(width * 0.94, width * 0.85 * uiScale));
 
     const handleLogin = () => {
         onClose();
@@ -35,8 +38,26 @@ export default function LoginRequiredModal({ visible, onClose, featureName }: Lo
             onRequestClose={onClose}
         >
             <View style={styles.overlay}>
-                <Pressable style={styles.backdrop} onPress={onClose} />
-                <BlurView intensity={30} tint="dark" style={[styles.modalContent, { borderColor: colors.glassBorder }]}>
+                <Pressable
+                    style={[
+                        styles.backdrop,
+                        { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(17,24,39,0.28)' }
+                    ]}
+                    onPress={onClose}
+                />
+                <BlurView
+                    intensity={isDark ? 30 : 18}
+                    tint={isDark ? 'dark' : 'light'}
+                    style={[
+                        styles.modalContent,
+                        {
+                            borderColor: colors.glassBorder,
+                            backgroundColor: isDark ? 'rgba(20, 20, 20, 0.42)' : 'rgba(255,255,255,0.86)',
+                            shadowColor: colors.shadowColor,
+                            width: modalWidth,
+                        }
+                    ]}
+                >
                     <View style={styles.header}>
                         <View style={[styles.iconContainer, { backgroundColor: colors.surfaceHighlight }]}>
                             <Ionicons name="lock-closed" size={32} color={colors.accent} />
@@ -78,10 +99,8 @@ const styles = StyleSheet.create({
     },
     backdrop: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.8)',
     },
     modalContent: {
-        width: width * 0.85,
         borderRadius: 28,
         padding: 24,
         alignItems: 'center',

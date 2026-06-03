@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, ScrollView, Platform, Linking } from 'react-native';
-import { useAppAlert, useAuth, useTheme } from '../../src/providers';
+import { useAppAlert, useAuth, useAppScale, useTheme } from '../../src/providers';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as AuthSession from 'expo-auth-session';
@@ -19,10 +19,11 @@ const LoginScreen = () => {
     const [googlePending, setGooglePending] = useState(false);
     const googleExchangeInFlightRef = useRef(false);
     const consumedGoogleResultKeyRef = useRef<string | null>(null);
-    const { signIn, signInWithGoogle } = useAuth();
+    const { signIn, signInWithGoogle, resendVerification } = useAuth();
     const router = useRouter();
-    const { colors: Theme } = useTheme();
-    const AuthStyles = useMemo(() => createAuthStyles(Theme), [Theme]);
+    const { colors: Theme, theme } = useTheme();
+    const { uiScale } = useAppScale();
+    const AuthStyles = useMemo(() => createAuthStyles(Theme, uiScale), [Theme, uiScale]);
     const showAlert = useAppAlert();
     const googleClientIds = useMemo(() => ({
         expoClientId: Constants.expoConfig?.extra?.GOOGLE_EXPO_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || undefined,
@@ -144,6 +145,35 @@ const LoginScreen = () => {
 
     const hasGoogleClientIds = !!(googleClientIds.expoClientId || googleClientIds.androidClientId || googleClientIds.iosClientId || googleClientIds.webClientId);
     const canStartGoogleAuth = hasGoogleClientIds;
+    const googleButtonLayoutStyle = useMemo(() => ({
+        minHeight: 54 * uiScale,
+        borderRadius: 18 * uiScale,
+        gap: 10 * uiScale,
+        marginBottom: 8 * uiScale,
+    }), [uiScale]);
+    const googleButtonThemeStyle = useMemo(() => {
+        if (theme === 'light') {
+            return {
+                backgroundColor: Theme.surfaceHighlight,
+                borderColor: Theme.border,
+                shadowColor: Theme.shadowColor,
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.12,
+                shadowRadius: 6,
+                elevation: 4,
+            };
+        }
+
+        return {
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            borderColor: 'rgba(255, 255, 255, 0.12)',
+            shadowColor: Theme.shadowColor,
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.18,
+            shadowRadius: 6,
+            elevation: 4,
+        };
+    }, [theme, Theme]);
 
     const handleLogin = async () => {
         if (!username.trim() || !password) {
@@ -160,6 +190,40 @@ const LoginScreen = () => {
         try {
             await signIn(username, password);
         } catch (error: any) {
+            // Check if account is not verified
+            if (isApiError(error) && error.code === 'ACCOUNT_NOT_VERIFIED') {
+                const email = error.metadata?.email || username.trim();
+                
+                showAlert(
+                    'Account Not Verified',
+                    'Your account exists but has not been verified. We\'ll send a new verification code to your email.',
+                    [
+                        {
+                            text: 'Verify Now',
+                            onPress: async () => {
+                                // Automatically resend verification code
+                                try {
+                                    await resendVerification(email);
+                                } catch (resendError) {
+                                    // Silent fail - user can still resend from verify screen
+                                }
+                                
+                                // Navigate to verification screen
+                                router.push({
+                                    pathname: '/auth/verify-email',
+                                    params: { email },
+                                });
+                            },
+                        },
+                        {
+                            text: 'Cancel',
+                            style: 'cancel',
+                        },
+                    ]
+                );
+                return;
+            }
+
             const message = isApiError(error)
                 ? error.userMessage
                 : (error?.message || 'Check your credentials');
@@ -264,6 +328,8 @@ const LoginScreen = () => {
                 <TouchableOpacity
                     style={[
                         styles.googleButton,
+                        googleButtonLayoutStyle,
+                        googleButtonThemeStyle,
                         (!canStartGoogleAuth || googleLoading) && styles.googleButtonDisabled,
                     ]}
                     onPress={handleGoogleLogin}
@@ -298,7 +364,7 @@ const LoginScreen = () => {
                     onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=AR%20Car%20Showcase%20account%20help`)}
                 >
                     <Text style={AuthStyles.linkText}>
-                        Account issues? Contact <Text style={AuthStyles.linkHighlight}>{SUPPORT_EMAIL}</Text>
+                        Account issues? <Text style={AuthStyles.linkHighlight}>{SUPPORT_EMAIL}</Text>
                     </Text>
                 </TouchableOpacity>
             </ScrollView>
@@ -331,8 +397,6 @@ const styles = {
         minHeight: 54,
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.12)',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
         flexDirection: 'row' as const,
         alignItems: 'center' as const,
         justifyContent: 'center' as const,

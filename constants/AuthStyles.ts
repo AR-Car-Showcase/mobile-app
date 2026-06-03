@@ -1,72 +1,73 @@
-import { StyleSheet, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native';
 import { Colors } from './Colors';
 import { spacing, radius } from '../src/theme';
+import { scaleValue } from '../src/utils/uiScale';
 
 type AuthTheme = typeof Colors.dark;
 
-export const createAuthStyles = (Theme: AuthTheme) => {
-    const insets = { top: 40 };
+export const createAuthStyles = (Theme: AuthTheme, uiScale = 1) => {
+    const scale = (value: number) => scaleValue(value, uiScale);
+    const insets = { top: scale(40) };
     return StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Theme.background,
     },
     scrollContent: {
-        padding: spacing.lg,
-        paddingTop: insets.top + spacing.lg,
+        padding: scale(spacing.lg),
+        paddingTop: insets.top + scale(spacing.lg),
         minHeight: '100%',
         justifyContent: 'center',
     },
     header: {
-        marginBottom: spacing.xl,
+        marginBottom: scale(spacing.xl),
         alignItems: 'center',
     },
     title: {
-        fontSize: 32,
+        fontSize: scale(32),
         color: Theme.text,
         fontWeight: 'bold',
-        marginBottom: spacing.xs,
+        marginBottom: scale(spacing.xs),
         textAlign: 'center',
     },
     subtitle: {
-        fontSize: 16,
+        fontSize: scale(16),
         color: Theme.textSecondary,
         textAlign: 'center',
     },
     inputWrapper: {
-        gap: spacing.md,
-        marginBottom: spacing.lg,
+        gap: scale(spacing.md),
+        marginBottom: scale(spacing.lg),
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Theme.surface,
         borderRadius: radius.md,
-        paddingHorizontal: spacing.md,
-        height: 60,
+        paddingHorizontal: scale(spacing.md),
+        height: scale(60),
         borderWidth: 1,
         borderColor: Theme.glassBorder,
     },
     icon: {
-        marginRight: spacing.sm,
+        marginRight: scale(spacing.sm),
     },
     input: {
         flex: 1,
         color: Theme.text,
-        fontSize: 16,
+        fontSize: scale(16),
     },
     button: {
         backgroundColor: Theme.accent,
-        height: 60,
+        height: scale(60),
         borderRadius: radius.md,
         justifyContent: 'center',
         alignItems: 'center',
-        marginVertical: spacing.lg,
+        marginVertical: scale(spacing.lg),
         shadowColor: Theme.accent,
-        shadowOffset: { width: 0, height: spacing.xs },
+        shadowOffset: { width: 0, height: scale(spacing.xs) },
         shadowOpacity: 0.3,
-        shadowRadius: spacing.xs,
+        shadowRadius: scale(spacing.xs),
         elevation: 5,
     },
     buttonDisabled: {
@@ -75,16 +76,16 @@ export const createAuthStyles = (Theme: AuthTheme) => {
     },
     buttonText: {
         color: 'white',
-        fontSize: 18,
+        fontSize: scale(18),
         fontWeight: 'bold',
     },
     linkButton: {
         alignItems: 'center',
-        paddingVertical: spacing.sm,
+        paddingVertical: scale(spacing.sm),
     },
     linkText: {
         color: Theme.textSecondary,
-        fontSize: 15,
+        fontSize: scale(15),
     },
     linkHighlight: {
         color: Theme.accent,
@@ -98,8 +99,8 @@ export const createAuthStyles = (Theme: AuthTheme) => {
         justifyContent: 'center',
         alignItems: 'center',
         position: 'absolute',
-        top: insets.top + spacing.lg,
-        left: spacing.lg,
+        top: insets.top + scale(spacing.lg),
+        left: scale(spacing.lg),
         zIndex: 10,
         borderWidth: 1,
         borderColor: Theme.glassBorder,

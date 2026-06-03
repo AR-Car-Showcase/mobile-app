@@ -1,13 +1,15 @@
 import React from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, Image, StyleSheet, Switch } from 'react-native';
+import { View, Text, Image, StyleSheet, Switch, Pressable } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
-import { ScrollProvider, useAuth, useTheme } from '../../src/providers';
+import { ScrollProvider, useAppScale, useAuth, useTheme } from '../../src/providers';
+import { formatUiScaleLabel } from '../../src/utils/uiScale';
 
 function CustomDrawerContent(props: any) {
     const { user, signOut } = useAuth();
     const { colors, theme, toggleTheme } = useTheme();
+    const { uiScale, increaseScale, decreaseScale, resetScale, canIncreaseScale, canDecreaseScale } = useAppScale();
 
     return (
         <DrawerContentScrollView {...props} contentContainerStyle={{ backgroundColor: colors.background, flex: 1 }}>
@@ -47,6 +49,40 @@ function CustomDrawerContent(props: any) {
                     />
                 </View>
 
+                <View style={styles.scaleContainer}>
+                    <View style={styles.themeToggleLabelContainer}>
+                        <Ionicons name="resize-outline" size={24} color={colors.text} />
+                        <View>
+                            <Text style={[styles.themeToggleText, { color: colors.text }]}>App Zoom</Text>
+                            <Text style={[styles.scaleValueText, { color: colors.textSecondary }]}>
+                                {formatUiScaleLabel(uiScale)}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.scaleActions}>
+                        <Pressable
+                            style={[styles.scaleButton, { backgroundColor: colors.surface }]}
+                            onPress={decreaseScale}
+                            disabled={!canDecreaseScale}
+                        >
+                            <Ionicons name="remove" size={18} color={canDecreaseScale ? colors.text : colors.textTertiary} />
+                        </Pressable>
+                        <Pressable
+                            style={[styles.scaleButton, styles.scaleResetButton, { backgroundColor: colors.surface }]}
+                            onPress={resetScale}
+                        >
+                            <Text style={[styles.scaleResetText, { color: colors.text }]}>Default</Text>
+                        </Pressable>
+                        <Pressable
+                            style={[styles.scaleButton, { backgroundColor: colors.surface }]}
+                            onPress={increaseScale}
+                            disabled={!canIncreaseScale}
+                        >
+                            <Ionicons name="add" size={18} color={canIncreaseScale ? colors.text : colors.textTertiary} />
+                        </Pressable>
+                    </View>
+                </View>
+
                 {user ? (
                     <DrawerItem
                         label="Sign Out"
@@ -68,6 +104,7 @@ function CustomDrawerContent(props: any) {
 }
 export default function MainLayout() {
     const { colors } = useTheme();
+    const { uiScale } = useAppScale();
 
     return (
         <ScrollProvider>
@@ -90,7 +127,7 @@ export default function MainLayout() {
                     drawerInactiveTintColor: colors.textSecondary,
                     drawerStyle: {
                         backgroundColor: colors.background,
-                        width: 280,
+                        width: Math.max(260, Math.min(320, Math.round(280 * uiScale))),
                     },
                 }}
             >
@@ -223,5 +260,36 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '500',
         marginLeft: 12,
+    },
+    scaleContainer: {
+        paddingHorizontal: 18,
+        paddingVertical: 12,
+        gap: 12,
+    },
+    scaleValueText: {
+        fontSize: 12,
+        marginTop: 2,
+        fontWeight: '500',
+    },
+    scaleActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    scaleButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    scaleResetButton: {
+        flex: 1,
+        borderRadius: 14,
+        height: 44,
+    },
+    scaleResetText: {
+        fontSize: 13,
+        fontWeight: '600',
     }
 });

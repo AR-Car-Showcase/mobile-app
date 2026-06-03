@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Linking } from 'react-native';
-import { useAppAlert, useAuth, useTheme } from '../../src/providers';
+import { useAppAlert, useAuth, useAppScale, useTheme } from '../../src/providers';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as AuthSession from 'expo-auth-session';
@@ -26,10 +26,11 @@ const SignupScreen = () => {
     const googleExchangeInFlightRef = useRef(false);
     const consumedGoogleResultKeyRef = useRef<string | null>(null);
 
-    const { signUp, signInWithGoogle } = useAuth();
+    const { signUp, signInWithGoogle, resendVerification } = useAuth();
     const router = useRouter();
-    const { colors: Theme } = useTheme();
-    const AuthStyles = useMemo(() => createAuthStyles(Theme), [Theme]);
+    const { colors: Theme, theme } = useTheme();
+    const { uiScale } = useAppScale();
+    const AuthStyles = useMemo(() => createAuthStyles(Theme, uiScale), [Theme, uiScale]);
     const themedStyles = useMemo(() => createSignupStyles(Theme), [Theme]);
     const showAlert = useAppAlert();
     const googleClientIds = useMemo(() => ({
@@ -150,6 +151,35 @@ const SignupScreen = () => {
         };
     }, [googlePending, googleResult, googleRequest, router, showAlert, signInWithGoogle]);
     const hasGoogleClientIds = !!(googleClientIds.expoClientId || googleClientIds.androidClientId || googleClientIds.iosClientId || googleClientIds.webClientId);
+    const googleButtonLayoutStyle = useMemo(() => ({
+        minHeight: 54 * uiScale,
+        borderRadius: 18 * uiScale,
+        gap: 10 * uiScale,
+        marginTop: 12 * uiScale,
+    }), [uiScale]);
+    const googleButtonThemeStyle = useMemo(() => {
+        if (theme === 'light') {
+            return {
+                backgroundColor: Theme.surfaceHighlight,
+                borderColor: Theme.border,
+                shadowColor: Theme.shadowColor,
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.12,
+                shadowRadius: 6,
+                elevation: 4,
+            };
+        }
+
+        return {
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            borderColor: 'rgba(255, 255, 255, 0.12)',
+            shadowColor: Theme.shadowColor,
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.18,
+            shadowRadius: 6,
+            elevation: 4,
+        };
+    }, [theme, Theme]);
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -215,6 +245,41 @@ const SignupScreen = () => {
                 ]);
             }
         } catch (error: any) {
+            // Check if the email already exists but is unverified
+            if (isApiError(error) && error.statusCode === 409) {
+                const errorMessage = error.userMessage || error.message || '';
+                
+                // Check if error mentions unverified account
+                if (errorMessage.toLowerCase().includes('not verified') || errorMessage.toLowerCase().includes('verify')) {
+                    showAlert(
+                        'Account Exists',
+                        'An account with this email already exists but has not been verified. We\'ll send a new verification code.',
+                        [
+                            {
+                                text: 'Verify Now',
+                                onPress: async () => {
+                                    try {
+                                        await resendVerification(trimmedEmail);
+                                    } catch (resendError) {
+                                        // Silent fail
+                                    }
+                                    
+                                    router.replace({
+                                        pathname: '/auth/verify-email',
+                                        params: { email: trimmedEmail },
+                                    });
+                                },
+                            },
+                            {
+                                text: 'Cancel',
+                                style: 'cancel',
+                            },
+                        ]
+                    );
+                    return;
+                }
+            }
+
             const message = isApiError(error)
                 ? friendlyAuthError(error.userMessage, 'Signup failed. Please try again.')
                 : (error?.message || 'Something went wrong');
@@ -345,6 +410,8 @@ const SignupScreen = () => {
                 <TouchableOpacity
                     style={[
                         styles.googleButton,
+                        googleButtonLayoutStyle,
+                        googleButtonThemeStyle,
                         (!googleRequest || !hasGoogleClientIds || googleLoading) && styles.googleButtonDisabled,
                     ]}
                     onPress={handleGoogleSignup}
@@ -400,8 +467,6 @@ const styles = StyleSheet.create({
         gap: 10,
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.12)',
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
     },
     googleButtonDisabled: {
         opacity: 0.5,

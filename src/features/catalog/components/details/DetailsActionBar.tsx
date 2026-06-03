@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { DEFAULT_MODEL_URL } from '../../../../../constants/CarModels';
 import { Car } from '../../../../../types/car';
 import { spacing } from '../../../../theme';
 
@@ -25,7 +26,7 @@ export function DetailsActionBar({ car, modelCacheToken, colors }: DetailsAction
                         brand: car.brand,
                         model: car.model,
                         initialMode: 'AR',
-                        modelFile: car.model3D,
+                        modelFile: car.model3D || DEFAULT_MODEL_URL,
                         carData: JSON.stringify(car),
                         modelCacheToken: modelCacheToken
                     }
@@ -43,7 +44,7 @@ export function DetailsActionBar({ car, modelCacheToken, colors }: DetailsAction
                         brand: car.brand,
                         model: car.model,
                         initialMode: '3D',
-                        modelFile: car.model3D,
+                        modelFile: car.model3D || DEFAULT_MODEL_URL,
                         carData: JSON.stringify(car),
                         modelCacheToken: modelCacheToken
                     }

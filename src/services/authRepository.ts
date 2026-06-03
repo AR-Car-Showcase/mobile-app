@@ -84,6 +84,16 @@ export const loginWithCredentials = async (
     const data = await parseResponseBody(response);
 
     if (!response.ok) {
+        // Check for unverified account (403 Forbidden with specific error code)
+        if (response.status === 403 && data?.errorCode === 'ACCOUNT_NOT_VERIFIED') {
+            throw new ApiError(ApiErrorCode.ACCOUNT_NOT_VERIFIED, {
+                statusCode: 403,
+                message: data.message || 'Account not verified',
+                userMessage: data.message || 'Please verify your email address to continue.',
+                metadata: { email: data.email },
+            });
+        }
+
         if (response.status === 401) {
             throw new ApiError(ApiErrorCode.UNAUTHORIZED, {
                 statusCode: 401,

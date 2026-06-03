@@ -1,12 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useAppAlert } from '../../src/providers';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { CommonStyles, ARStyles, Colors } from '../../constants';
 import { HybridStyles as styles } from '../../constants/HybridStyles';
-import { CarProvider, useCarContext, useTheme } from '../../src/providers';
+import { CarProvider, useAppAlert, useCarContext, useTheme } from '../../src/providers';
 import { getCarByBrandAndModel, getCarById } from '../../api/cars';
+import { DEFAULT_MODEL_URL } from '../../constants/CarModels';
 import CustomizerScreen from '../../components/CustomizerScreen';
 import CustomizationDrawer from '../../components/CustomizationDrawer';
 import { generateCustomModel, getModelUrl } from '../../src/services';
@@ -17,6 +17,23 @@ import { ViroARSceneNavigator } from '@reactvision/react-viro';
 const MIN_ZOOM = 1.5;
 const MAX_ZOOM = 20;
 const ZOOM_STEP = 0.5;
+
+const DEMO_MODEL_FILE = 'car.glb';
+
+const isGenericDemoModel = (modelPath?: string | null) => {
+    if (!modelPath) {
+        return true;
+    }
+
+    const normalized = modelPath.split('?')[0].split('#')[0].trim().toLowerCase();
+    if (!normalized) {
+        return true;
+    }
+
+    return normalized === DEMO_MODEL_FILE
+        || normalized.endsWith(`/${DEMO_MODEL_FILE}`)
+        || normalized.endsWith(`\\${DEMO_MODEL_FILE}`);
+};
 
 function HybridContent() {
     const router = useRouter();
@@ -41,6 +58,7 @@ function HybridContent() {
     const [generatedModelUrl, setGeneratedModelUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isRefreshingModel, setIsRefreshingModel] = useState(false);
+    const hasShownModelWarning = useRef(false);
     const [modelCacheToken, setModelCacheToken] = useState<number>(() => {
         const initialToken = params.modelCacheToken;
         const parsed = typeof initialToken === 'string' ? Number.parseInt(initialToken, 10) : Number(initialToken);
@@ -48,6 +66,11 @@ function HybridContent() {
     });
 
     const sceneRef = useRef<any>(null);
+    const resolvedModelPath = useMemo(() => {
+        const candidate = car?.model3D || (params.modelFile as string) || '';
+        return candidate || DEFAULT_MODEL_URL;
+    }, [car?.model3D, params.modelFile]);
+    const isFallbackDemoModel = useMemo(() => isGenericDemoModel(resolvedModelPath), [resolvedModelPath]);
 
     React.useEffect(() => {
         const loadInitialData = async (forceRefresh = false) => {
@@ -102,6 +125,37 @@ function HybridContent() {
         loadInitialData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [params.carData, params.brand, params.model, params.id, params.initialMode, params.customizationId]);
+
+    useEffect(() => {
+        hasShownModelWarning.current = false;
+    }, [car?.id]);
+
+    useEffect(() => {
+        if (!car || !isFallbackDemoModel) {
+            return;
+        }
+
+        if ((viewMode === '3D' || viewMode === 'AR') && !hasShownModelWarning.current) {
+            hasShownModelWarning.current = true;
+            showAlert(
+                'Unavailable',
+                [
+                    `A 3D model for ${car.brand} ${car.model} is currently unavailable.`,
+                    'A generic demonstration vehicle will be displayed instead so you can still experience AR or 3D features.',
+                    'You can explore available 3D models in the AR Gallery.',
+                ].join('\n\n'),
+                [
+                    {
+                        text: 'Browse AR Gallery',
+                        onPress: () => router.push('/ar-gallery'),
+                    },
+                    {
+                        text: 'Continue',
+                    },
+                ]
+            );
+        }
+    }, [car, isFallbackDemoModel, router, showAlert, viewMode]);
 
     const handleRotateLeft = () => sceneRef.current?.rotateLeft?.();
     const handleRotateRight = () => sceneRef.current?.rotateRight?.();
@@ -209,6 +263,25 @@ function HybridContent() {
     const Theme = Colors.dark;
     const dynamicIconColor = backgroundTheme === 'dark' ? '#FFFFFF' : '#1A1A1A';
     const dynamicButtonBg = backgroundTheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+    const baseCarDetails = useMemo(() => {
+        if (!car) {
+            return [];
+        }
+
+        const ratingText = typeof car.rating === 'number' ? `${car.rating.toFixed(1)}/5` : String(car.rating || '');
+
+        return [
+            { label: 'Brand', value: `${car.brand}` },
+            { label: 'Model', value: `${car.model}` },
+            { label: 'Body Type', value: `${car.bodyType || 'Not available'}` },
+            { label: 'Fuel Type', value: `${car.fuelType || 'Not available'}` },
+            { label: 'Transmission', value: `${car.transmissionType || 'Not available'}` },
+            { label: 'Seating Capacity', value: `${car.seatingCapacity || 'Not available'}` },
+            { label: 'Price Range', value: `${car.priceRange || 'Not available'}` },
+            { label: 'Rating', value: ratingText || 'Not available' },
+            { label: '3D Model', value: isFallbackDemoModel ? 'Unavailable - demo vehicle' : 'Available' },
+        ];
+    }, [car, isFallbackDemoModel]);
 
     return (
         <View style={[CommonStyles.container, { backgroundColor: colors.background }]}>
@@ -272,41 +345,41 @@ function HybridContent() {
                 </View>
             )}
 
-            {viewMode === '3D' && (
-                <View style={{ position: 'absolute', right: 20, top: 140, gap: 15, zIndex: 10 }}>
-                    <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={handleZoomIn}>
-                        <Ionicons name="add" size={24} color={dynamicIconColor} />
-                    </TouchableOpacity>
+                {viewMode === '3D' && (
+                    <View style={{ position: 'absolute', right: 20, top: 140, gap: 15, zIndex: 10 }}>
+                        <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={handleZoomIn}>
+                            <Ionicons name="add" size={24} color={dynamicIconColor} />
+                        </TouchableOpacity>
                     <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={handleZoomOut}>
                         <Ionicons name="remove" size={24} color={dynamicIconColor} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={resetPosition}>
-                        <MaterialIcons name="center-focus-weak" size={24} color={dynamicIconColor} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.iconButton, { backgroundColor: showSpecs ? Colors.dark.accent : dynamicButtonBg }]} onPress={() => setShowSpecs(!showSpecs)}>
-                        <Ionicons name="information-circle-outline" size={24} color={showSpecs ? "white" : dynamicIconColor} />
-                    </TouchableOpacity>
-                </View>
-            )}
+                        <TouchableOpacity style={[styles.iconButton, { backgroundColor: dynamicButtonBg }]} onPress={resetPosition}>
+                            <MaterialIcons name="center-focus-weak" size={24} color={dynamicIconColor} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.iconButton, { backgroundColor: showSpecs ? Colors.dark.accent : dynamicButtonBg }]} onPress={() => setShowSpecs(!showSpecs)}>
+                            <Ionicons name="information-circle-outline" size={24} color={showSpecs ? "white" : dynamicIconColor} />
+                        </TouchableOpacity>
+                    </View>
+                )}
 
-            <View style={styles.contentArea}>
-                {viewMode === '3D' ? (
-                    <CustomizerScreen
+                <View style={styles.contentArea}>
+                    {viewMode === '3D' ? (
+                        <CustomizerScreen
                         rotationY={rotationY}
                         rotationX={rotationX}
                         zoom={zoom}
                         onRotationYChange={setRotationY}
                         onRotationXChange={setRotationX}
                         onZoomChange={setZoom}
-                        touchEnabled={true}
-                        theme={backgroundTheme}
-                        viewType={viewType}
-                        autoRotate={autoRotate}
-                        modelPath={car?.model3D || params.modelFile as string}
-                        cacheToken={modelCacheToken}
-                    />
-                ) : (
-                    <View style={styles.arContainer}>
+                            touchEnabled={true}
+                            theme={backgroundTheme}
+                            viewType={viewType}
+                            autoRotate={autoRotate}
+                            modelPath={resolvedModelPath}
+                            cacheToken={modelCacheToken}
+                        />
+                    ) : (
+                        <View style={styles.arContainer}>
                         {(() => {
                             return (
                                 <ViroARSceneNavigator
@@ -317,7 +390,7 @@ function HybridContent() {
                                         materials: config.materials,
                                         customModelUrl: generatedModelUrl,
                                         showCustomized: config.showCustomized,
-                                        modelPath: car?.model3D || params.modelFile as string,
+                                        modelPath: resolvedModelPath,
                                         cacheToken: modelCacheToken
                                     }}
                                     style={styles.arView}
@@ -357,15 +430,17 @@ function HybridContent() {
                     </View>
                 )}
 
-                {viewMode === 'AR' && (
+                {(viewMode === 'AR' || viewMode === '3D') && showSpecs && car && (
                     <View style={styles.bottomControls}>
-                        {showSpecs && car && (
-                            <View style={styles.specsPanel}>
-                                <Text style={styles.specTitle}>{car.brand.toUpperCase()} {car.model.toUpperCase()} Specs</Text>
-                                <View style={styles.specRow}><Text style={styles.specLabel}>Body Type</Text><Text style={styles.specValue}>{car.body_type}</Text></View>
-                                <View style={styles.specRow}><Text style={styles.specLabel}>Fuel Type</Text><Text style={styles.specValue}>{car.fuel_type}</Text></View>
-                            </View>
-                        )}
+                        <View style={styles.specsPanel}>
+                            <Text style={styles.specTitle}>{car.brand.toUpperCase()} {car.model.toUpperCase()} Details</Text>
+                            {baseCarDetails.map((item) => (
+                                <View key={item.label} style={styles.specRow}>
+                                    <Text style={styles.specLabel}>{item.label}</Text>
+                                    <Text style={styles.specValue} numberOfLines={1}>{item.value}</Text>
+                                </View>
+                            ))}
+                        </View>
                     </View>
                 )}
             </View>

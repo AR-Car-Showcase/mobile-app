@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Animated from 'react-native-reanimated';
@@ -18,7 +19,7 @@ const DEFAULT_TAB_ICON = 'square';
 export default function AnimatedTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const { scrollY, tabBarHeight } = useScrollContext();
     const { colors } = useTheme();
-
+    const insets = useSafeAreaInsets();
 
     const animatedStyle = useSmartScroll(scrollY, tabBarHeight, 'down');
 
@@ -28,6 +29,8 @@ export default function AnimatedTabBar({ state, descriptors, navigation }: Botto
             {
                 backgroundColor: colors.surface,
                 borderTopColor: colors.border,
+                paddingBottom: insets.bottom,
+                height: 70 + insets.bottom,
             },
             animatedStyle
         ]}>
@@ -85,7 +88,6 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        height: 70,
         borderTopWidth: 1,
         elevation: 8,
         shadowColor: '#000',
@@ -95,7 +97,7 @@ const styles = StyleSheet.create({
     },
     content: {
         flexDirection: 'row',
-        height: '100%',
+        height: 70,
         alignItems: 'center',
         justifyContent: 'space-around',
     },

@@ -3,6 +3,7 @@ export enum ApiErrorCode {
     TIMEOUT = 'TIMEOUT',
     UNAUTHORIZED = 'UNAUTHORIZED',
     FORBIDDEN = 'FORBIDDEN',
+    ACCOUNT_NOT_VERIFIED = 'ACCOUNT_NOT_VERIFIED',
     CONFLICT = 'CONFLICT',
     TOO_MANY_REQUESTS = 'TOO_MANY_REQUESTS',
     NOT_FOUND = 'NOT_FOUND',
@@ -15,6 +16,7 @@ const USER_MESSAGES: Record<ApiErrorCode, string> = {
     [ApiErrorCode.TIMEOUT]: 'Request timed out. Please try again.',
     [ApiErrorCode.UNAUTHORIZED]: 'Session expired. Please log in again.',
     [ApiErrorCode.FORBIDDEN]: "You don't have permission to access this.",
+    [ApiErrorCode.ACCOUNT_NOT_VERIFIED]: 'Please verify your email address to continue.',
     [ApiErrorCode.CONFLICT]: 'That account already exists or is already in use.',
     [ApiErrorCode.TOO_MANY_REQUESTS]: 'Too many requests. Please wait and try again.',
     [ApiErrorCode.NOT_FOUND]: 'The requested data was not found.',
@@ -26,14 +28,16 @@ export class ApiError extends Error {
     readonly code: ApiErrorCode;
     readonly statusCode?: number;
     readonly userMessage: string;
+    readonly metadata?: Record<string, any>;
 
-    constructor(code: ApiErrorCode, options?: { statusCode?: number; message?: string; userMessage?: string }) {
+    constructor(code: ApiErrorCode, options?: { statusCode?: number; message?: string; userMessage?: string; metadata?: Record<string, any> }) {
         const developerMessage = options?.message || USER_MESSAGES[code];
         super(developerMessage);
         this.name = 'ApiError';
         this.code = code;
         this.statusCode = options?.statusCode;
         this.userMessage = options?.userMessage || USER_MESSAGES[code];
+        this.metadata = options?.metadata;
     }
 }
 

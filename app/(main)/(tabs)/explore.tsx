@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, RefreshControl, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useCarCatalog, useScrollContext, useTheme } from '../../../src/providers';
@@ -21,6 +21,9 @@ export default function ExploreScreen() {
     const [activeFilter, setActiveFilter] = useState('All');
     const navigation = useNavigation<DrawerNavigationProp<any>>();
     const { cars: catalogCars, loading, refreshing, refreshCatalog } = useCarCatalog();
+    const { width: windowWidth } = useWindowDimensions();
+    const gridCardWidth = Math.floor((windowWidth - 48) / 2);
+    const gridImageHeight = Math.max(92, Math.round(gridCardWidth * 0.58));
 
     const scrollHandler = useAnimatedScrollHandler((event) => {
         scrollY.value = event.contentOffset.y;
@@ -129,7 +132,7 @@ export default function ExploreScreen() {
                 data={filteredCars}
                 keyExtractor={(item) => String(item.id)}
                 numColumns={2}
-                contentContainerStyle={[styles.gridContainer, { paddingTop: insets.top + 170 }]}
+                contentContainerStyle={[styles.gridContainer, { paddingTop: insets.top + 170, paddingBottom: insets.bottom + 100 }]}
                 columnWrapperStyle={styles.row}
                 onScroll={scrollHandler}
                 scrollEventThrottle={16}
@@ -153,6 +156,9 @@ export default function ExploreScreen() {
                         image={item.images.exterior[0]}
                         price={item.priceRange}
                         rating={Number(item.rating) || 4.5}
+                        width={gridCardWidth}
+                        imageHeight={gridImageHeight}
+                        priceFontSize={12.5}
                         onPress={() => router.push({ pathname: '/details', params: { id: item.id } })}
                     />
                 )}
@@ -179,6 +185,11 @@ const styles = StyleSheet.create({
         right: 0,
         zIndex: 110,
         paddingBottom: 10,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     searchContainerWrapper: {
         position: 'absolute',
@@ -251,7 +262,6 @@ const styles = StyleSheet.create({
     },
     gridContainer: {
         padding: 16,
-        paddingBottom: 100,
     },
     row: {
         justifyContent: 'space-between',

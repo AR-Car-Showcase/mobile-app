@@ -4,7 +4,7 @@ import '../src/polyfills';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
-import { AppAlertProvider, AuthProvider, CarCatalogProvider, ThemeProvider, useAuth, useTheme } from '../src/providers';
+import { AppAlertProvider, AppScaleProvider, AuthProvider, CarCatalogProvider, ThemeProvider, useAuth, useTheme } from '../src/providers';
 import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
@@ -82,11 +82,13 @@ const RootLayout = () => {
   return (
     <ThemeProvider>
       <AppAlertProvider>
-        <CarCatalogProvider>
-          <AuthProvider>
-            <InitialLayout />
-          </AuthProvider>
-        </CarCatalogProvider>
+        <AppScaleProvider>
+          <CarCatalogProvider>
+            <AuthProvider>
+              <InitialLayout />
+            </AuthProvider>
+          </CarCatalogProvider>
+        </AppScaleProvider>
       </AppAlertProvider>
     </ThemeProvider>
   );
