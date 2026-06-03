@@ -445,7 +445,7 @@ graph TD
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/AdepuSriCharan/AR-Car-Showcase.git
+   git clone https://github.com/AR-Car-Showcase/mobile-app.git
    cd AR-Car-Showcase
    ```
 
@@ -509,9 +509,10 @@ graph TD
 
 ## 🔗 Related Repositories
 
-- **[AR-Car-Showcase-Server](https://github.com/AdepuSriCharan/AR-Car-Showcase-Server)** – Spring Boot backend + Python Blender microservice
-
----
+- **[Mobile App](https://github.com/AR-Car-Showcase/mobile-app)** – React Native application with AR and 3D visualization
+- **[Spring Boot Server](https://github.com/AR-Car-Showcase/spring-boot-server)** – Core backend APIs and business logic
+- **[Blender Service](https://github.com/AR-Car-Showcase/blender-service)** – Automated 3D model generation pipeline
+- **[Recommendation Service](https://github.com/AR-Car-Showcase/recommendation-service)** – AI-powered vehicle recommendation engine
 
 ## 📄 License
 
