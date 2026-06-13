@@ -516,4 +516,4 @@ graph TD
 
 ## 📄 License
 
-This project is private.
+MIT License — See [LICENSE](./LICENSE) for details.
