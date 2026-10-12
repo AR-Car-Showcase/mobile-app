@@ -20,5 +20,9 @@ export const customizationsApi = {
             vehicleId,
             materials
         });
+    },
+
+    deleteCustomization: async (customizationId: string): Promise<void> => {
+        await apiClient.delete<void>(`/customizations/${customizationId}`);
     }
 };

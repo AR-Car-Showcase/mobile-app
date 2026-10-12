@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, StatusBar, R
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../../src/providers';
+import { useAppAlert, useTheme } from '../../src/providers';
 import { LinearGradient } from 'expo-linear-gradient';
 import { customizationsApi, CustomizationResponse } from '../../api/customizations';
 import { carsApi } from '../../api/cars';
@@ -15,6 +15,8 @@ export default function SavedModelsScreen() {
     const [customizations, setCustomizations] = useState<CustomizationResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const showAlert = useAppAlert();
 
     const loadCustomizations = async () => {
         try {
@@ -56,6 +58,36 @@ export default function SavedModelsScreen() {
         });
     };
 
+    const handleDelete = (item: CustomizationResponse) => {
+        showAlert(
+            'Remove this model?',
+            `${item.carBrand} ${item.carModel} will be removed from your showroom. This cannot be undone.`,
+            [
+                { text: 'Cancel' },
+                {
+                    text: 'Remove',
+                    onPress: async () => {
+                        setDeletingId(item.customizationId);
+                        // Drop it from the list straight away, then put it back if the
+                        // request fails - the list should never show a stale entry.
+                        const previous = customizations;
+                        setCustomizations(current =>
+                            current.filter(entry => entry.customizationId !== item.customizationId));
+                        try {
+                            await customizationsApi.deleteCustomization(item.customizationId);
+                        } catch (error: any) {
+                            setCustomizations(previous);
+                            showAlert('Could not remove model', error?.userMessage || error?.message
+                                || 'Please check your connection and try again.');
+                        } finally {
+                            setDeletingId(null);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     const renderModelCard = ({ item }: { item: CustomizationResponse }) => (
         <TouchableOpacity
             style={[styles.modelCard, { backgroundColor: colors.surface }]}
@@ -95,6 +127,21 @@ export default function SavedModelsScreen() {
                     <MaterialCommunityIcons name="check-decagram" size={14} color="#FFF" />
                     <Text style={styles.statusBadgeText}>CUSTOMIZED</Text>
                 </View>
+
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDelete(item)}
+                    disabled={deletingId === item.customizationId}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${item.carBrand} ${item.carModel} from your showroom`}
+                >
+                    {deletingId === item.customizationId ? (
+                        <ActivityIndicator size="small" color={colors.textSecondary} />
+                    ) : (
+                        <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+                    )}
+                </TouchableOpacity>
             </LinearGradient>
         </TouchableOpacity>
     );
@@ -242,6 +289,17 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginTop: 2,
         textAlign: 'center',
+    },
+    deleteButton: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0,0,0,0.25)',
     },
     statusBadge: {
         flexDirection: 'row',
