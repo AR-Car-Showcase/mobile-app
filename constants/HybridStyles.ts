@@ -152,4 +152,18 @@ export const HybridStyles = StyleSheet.create({
         marginTop: 20,
         letterSpacing: 0.5,
     },
+    loadingHint: {
+        color: Theme.textSecondary,
+        marginTop: 8,
+        fontSize: 13,
+        textAlign: 'center',
+        paddingHorizontal: 32,
+    },
+    loadingTimer: {
+        color: Theme.textSecondary,
+        marginTop: 12,
+        fontSize: 12,
+        fontVariant: ['tabular-nums'],
+        letterSpacing: 1,
+    },
 });

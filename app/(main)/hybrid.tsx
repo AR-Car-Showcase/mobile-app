@@ -20,6 +20,12 @@ const ZOOM_STEP = 0.5;
 
 const DEMO_MODEL_FILE = 'car.glb';
 
+const formatElapsed = (totalSeconds: number) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
 const isGenericDemoModel = (modelPath?: string | null) => {
     if (!modelPath) {
         return true;
@@ -57,6 +63,7 @@ function HybridContent() {
 
     const [generatedModelUrl, setGeneratedModelUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [generationSeconds, setGenerationSeconds] = useState(0);
     const [isRefreshingModel, setIsRefreshingModel] = useState(false);
     const hasShownModelWarning = useRef(false);
     const [modelCacheToken, setModelCacheToken] = useState<number>(() => {
@@ -129,6 +136,22 @@ function HybridContent() {
     useEffect(() => {
         hasShownModelWarning.current = false;
     }, [car?.id]);
+
+    // Blender renders take a minute or more. Show real elapsed time so the wait reads
+    // as progress rather than a hung screen.
+    useEffect(() => {
+        if (!isGenerating) {
+            setGenerationSeconds(0);
+            return;
+        }
+
+        const startedAt = Date.now();
+        const interval = setInterval(() => {
+            setGenerationSeconds(Math.floor((Date.now() - startedAt) / 1000));
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [isGenerating]);
 
     useEffect(() => {
         if (!car || !isFallbackDemoModel) {
@@ -463,7 +486,13 @@ function HybridContent() {
             {isGenerating && (
                 <View style={styles.loadingOverlay}>
                     <ActivityIndicator size="large" color={Theme.accent} />
-                    <Text style={styles.loadingText}>Generating Model...</Text>
+                    <Text style={styles.loadingText}>Generating your model…</Text>
+                    <Text style={styles.loadingHint}>
+                        {generationSeconds < 20
+                            ? 'Applying your colours in Blender.'
+                            : 'Still working — large models can take up to two minutes.'}
+                    </Text>
+                    <Text style={styles.loadingTimer}>{formatElapsed(generationSeconds)}</Text>
                 </View>
             )}
         </View>

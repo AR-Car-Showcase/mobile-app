@@ -11,6 +11,16 @@ const getBaseUrl = () =>
 export const BASE_URL = getBaseUrl();
 
 const DEFAULT_TIMEOUT_MS = 15000;
+
+export interface RequestOptions {
+    /**
+     * Per-request override. Needed for work that legitimately outlasts the default,
+     * such as Blender model generation, where the server itself allows up to 180s.
+     * Always keep this ABOVE the server-side timeout, otherwise the client gives up
+     * on work that is still going to succeed.
+     */
+    timeoutMs?: number;
+}
 let refreshPromise: Promise<boolean> | null = null;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
@@ -139,14 +149,14 @@ export const apiClient = {
         unauthorizedHandler = handler;
     },
 
-    get: async <T>(endpoint: string, params?: Record<string, any>): Promise<T> => {
+    get: async <T>(endpoint: string, params?: Record<string, any>, options?: RequestOptions): Promise<T> => {
         const url = buildUrl(endpoint, params);
         const headers = await getAuthHeaders();
 
-        return performRequest<T>(url, { method: 'GET', headers });
+        return performRequest<T>(url, { method: 'GET', headers }, options?.timeoutMs);
     },
 
-    post: async <T>(endpoint: string, data?: unknown): Promise<T> => {
+    post: async <T>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> => {
         const url = buildUrl(endpoint);
         const headers = await getAuthHeaders();
 
@@ -154,10 +164,10 @@ export const apiClient = {
             method: 'POST',
             headers,
             body: JSON.stringify(data),
-        });
+        }, options?.timeoutMs);
     },
 
-    put: async <T>(endpoint: string, data?: unknown): Promise<T> => {
+    put: async <T>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> => {
         const url = buildUrl(endpoint);
         const headers = await getAuthHeaders();
 
@@ -165,10 +175,10 @@ export const apiClient = {
             method: 'PUT',
             headers,
             body: JSON.stringify(data),
-        });
+        }, options?.timeoutMs);
     },
 
-    patch: async <T>(endpoint: string, data?: unknown): Promise<T> => {
+    patch: async <T>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> => {
         const url = buildUrl(endpoint);
         const headers = await getAuthHeaders();
 
@@ -176,13 +186,13 @@ export const apiClient = {
             method: 'PATCH',
             headers,
             body: JSON.stringify(data),
-        });
+        }, options?.timeoutMs);
     },
 
-    delete: async <T>(endpoint: string): Promise<T> => {
+    delete: async <T>(endpoint: string, options?: RequestOptions): Promise<T> => {
         const url = buildUrl(endpoint);
         const headers = await getAuthHeaders();
 
-        return performRequest<T>(url, { method: 'DELETE', headers });
+        return performRequest<T>(url, { method: 'DELETE', headers }, options?.timeoutMs);
     },
 };

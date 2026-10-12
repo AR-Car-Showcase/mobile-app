@@ -16,6 +16,14 @@ export interface GenerateResult {
     generation_time?: number;
 }
 
+/**
+ * Blender generation is slow: the server allows up to 180s for the render and the
+ * Blender worker itself allows 120s. The default 15s client timeout aborted almost
+ * every real request, so the user saw a failure for work that actually succeeded -
+ * leaving an orphaned customization row and an orphaned object in the bucket.
+ */
+const GENERATION_TIMEOUT_MS = 200_000;
+
 export async function generateCustomModel(config: CarConfig): Promise<GenerateResult> {
     const payload = {
         vehicleId: config.vehicleId,
@@ -26,7 +34,7 @@ export async function generateCustomModel(config: CarConfig): Promise<GenerateRe
         const result = await apiClient.post<{
             customizationId: string;
             modelUrl: string;
-        }>('/customizations', payload);
+        }>('/customizations', payload, { timeoutMs: GENERATION_TIMEOUT_MS });
 
         return {
             success: true,
