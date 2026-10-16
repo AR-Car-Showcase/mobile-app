@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, FlatList, RefreshControl, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth, useTheme } from '../../../src/providers';
+import { useAuth, useAppAlert, useTheme } from '../../../src/providers';
 import { useNavigation, router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { likeService } from '../../../src/services';
@@ -14,13 +15,17 @@ export default function SavedScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation<DrawerNavigationProp<any>>();
     const { isAuthenticated } = useAuth();
+    const showAlert = useAppAlert();
     const [likedCars, setLikedCars] = React.useState<LikedCar[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [refreshing, setRefreshing] = React.useState(false);
+    const [removingId, setRemovingId] = React.useState<string | null>(null);
 
-    const fetchLikedCars = async () => {
+    // showSpinner is off for background refreshes, so coming back to the tab does not
+    // blank out the list that is already on screen.
+    const fetchLikedCars = React.useCallback(async (showSpinner = true) => {
         try {
-            setLoading(true);
+            if (showSpinner) setLoading(true);
             const cars = await likeService.getMyLikes();
             setLikedCars(cars);
         } catch (error) {
@@ -29,20 +34,55 @@ export default function SavedScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
-    React.useEffect(() => {
-        if (isAuthenticated) {
-            void fetchLikedCars();
-        } else {
-            setLikedCars([]);
-            setLoading(false);
-        }
-    }, [isAuthenticated]);
+    // Liking happens on the details screen, so the list has to be rebuilt on focus.
+    // Fetching only on mount left a car the user just liked missing from this tab.
+    useFocusEffect(
+        React.useCallback(() => {
+            if (!isAuthenticated) {
+                setLikedCars([]);
+                setLoading(false);
+                return;
+            }
+            void fetchLikedCars(likedCars.length === 0);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [isAuthenticated, fetchLikedCars])
+    );
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchLikedCars();
+        await fetchLikedCars(false);
+    };
+
+    const handleRemove = (car: LikedCar, label: string) => {
+        const carId = car.id.toString();
+        showAlert(
+            'Remove from saved?',
+            `${label} will no longer appear in your saved cars.`,
+            [
+                { text: 'Cancel' },
+                {
+                    text: 'Remove',
+                    onPress: async () => {
+                        setRemovingId(carId);
+                        // Drop it immediately, then restore it if the request fails, so
+                        // the list never shows a car the server still has.
+                        const previous = likedCars;
+                        setLikedCars(current => current.filter(entry => entry.id.toString() !== carId));
+                        try {
+                            await likeService.unlikeCar(car.id);
+                        } catch (error: any) {
+                            setLikedCars(previous);
+                            showAlert('Could not remove car', error?.userMessage || error?.message
+                                || 'Please check your connection and try again.');
+                        } finally {
+                            setRemovingId(null);
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     return (
@@ -87,19 +127,37 @@ export default function SavedScreen() {
                     <FlatList
                         data={likedCars}
                         keyExtractor={(item) => item.id.toString()}
-                        renderItem={({ item }: { item: any }) => (
-                            <View style={styles.cardWrapper}>
-                                <CarCard
-                                    id={item.id.toString()}
-                                    name={`${item.brand.charAt(0).toUpperCase() + item.brand.slice(1)} ${item.model.charAt(0).toUpperCase() + item.model.slice(1)}`}
-                                    image={item.image}
-                                    price={item.priceRange}
-                                    featured={true}
-                                    fullWidth={true}
-                                    onPress={() => router.push({ pathname: '/details', params: { id: item.id } })}
-                                />
-                            </View>
-                        )}
+                        renderItem={({ item }: { item: any }) => {
+                            const name = `${item.brand.charAt(0).toUpperCase() + item.brand.slice(1)} ${item.model.charAt(0).toUpperCase() + item.model.slice(1)}`;
+                            const isRemoving = removingId === item.id.toString();
+                            return (
+                                <View style={styles.cardWrapper}>
+                                    <CarCard
+                                        id={item.id.toString()}
+                                        name={name}
+                                        image={item.image}
+                                        price={item.priceRange}
+                                        featured={true}
+                                        fullWidth={true}
+                                        onPress={() => router.push({ pathname: '/details', params: { id: item.id } })}
+                                    />
+                                    <Pressable
+                                        style={styles.removeButton}
+                                        onPress={() => handleRemove(item, name)}
+                                        disabled={isRemoving}
+                                        hitSlop={8}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Remove ${name} from your saved cars`}
+                                    >
+                                        {isRemoving ? (
+                                            <ActivityIndicator size="small" color="#fff" />
+                                        ) : (
+                                            <Ionicons name="heart-dislike-outline" size={18} color="#fff" />
+                                        )}
+                                    </Pressable>
+                                </View>
+                            );
+                        }}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
                         removeClippedSubviews
@@ -176,5 +234,16 @@ const styles = StyleSheet.create({
     },
     cardWrapper: {
         marginBottom: 10,
+    },
+    removeButton: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0,0,0,0.45)',
     },
 });
