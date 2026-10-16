@@ -35,6 +35,9 @@ export default function VehicleDetailsScreen() {
     const thumbnailRef = useRef<any>(null);
     
     const [isLiked, setIsLiked] = useState(false);
+    // A second tap while the first request is still open used to send a second write,
+    // which raced the first on the server and produced a duplicate like.
+    const likeInFlight = useRef(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [modelCacheToken, setModelCacheToken] = useState(0);
     const { isAuthenticated } = useAuth();
@@ -96,7 +99,9 @@ export default function VehicleDetailsScreen() {
             setShowLoginModal(true);
             return;
         }
-        if (!car?.id) return;
+        if (!car?.id || likeInFlight.current) return;
+
+        likeInFlight.current = true;
         const newLikedState = !isLiked;
         setIsLiked(newLikedState);
         try {
@@ -108,6 +113,8 @@ export default function VehicleDetailsScreen() {
         } catch (error) {
             console.error('[Details] Failed to toggle like:', error);
             setIsLiked(!newLikedState);
+        } finally {
+            likeInFlight.current = false;
         }
     };
 
